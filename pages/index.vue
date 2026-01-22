@@ -1,56 +1,33 @@
-<template>
-  <!-- Page wrapper -->
-  <div class="bg-gray-100 min-h-screen px-4 pt-20">
-    
-    <!-- Centered Card -->
-    <div class="mx-auto w-full max-w-sm bg-white rounded-2xl shadow-lg p-6">
-
-      <!-- Header -->
-      <h1 class="text-2xl font-semibold text-center text-gray-800 mb-5">
-         My Todos
-      </h1>
-
-      <!-- Form -->
-      <TodoForm />
-
-      <!-- Todo List -->
-      <ul v-if="todoStore.todos.length" class="space-y-2">
-        <li
-          v-for="todo in todoStore.todos"
-          :key="todo.id"
-          class="group flex items-center justify-between px-2 py-1 bg-gray-50 rounded-lg border hover:shadow-sm transition"
-        >
-          <span class="text-gray-70 text-sm truncate">
-            {{ todo.title }}
-          </span>
-
-          <div class="flex gap-3 text-xs opacity-0 group-hover:opacity-100 transition">
-            <button class="text-blue-500 hover:underline">
-              Edit
-            </button>
-            <button class="text-red-500 hover:underline">
-              Delete
-            </button>
-          </div>
-        </li>
-      </ul>
-
-      <!-- Empty State -->
-      <p
-        v-else
-        class="text-center text-gray-400 text-sm mt-6"
-      >
-        No todos yet
-        <br />Add your first task above.
-      </p>
-
-    </div>
-  </div>
-  
-</template>
-
 <script setup>
-const todoStore = useTodoStore()
+import { ref } from 'vue'
+import { useTodoStore } from '~/stores/todoStore'
+
+import TodoForm from '~/components/TodoForm.vue'
+import TodoList from '~/components/TodoList.vue'
+import TodoStats from '~/components/TodoStats.vue'
+import Toast from '~/components/Toast.vue'
+
+const store = useTodoStore()
+const selectedTodo = ref(null)
 </script>
 
-
+<template>
+  <div class="min-h-screen bg-gray-100 py-6">
+    <div class="max-w-md mx-auto px-4">
+      <!-- Header -->
+      <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">
+        Todo Manager
+      </h1>
+      <Toast />
+      
+      <TodoStats />
+      
+      <TodoForm :editTodo="selectedTodo" />
+      
+      <NuxtLink to="/todos" class="text-blue-600 hover:underline text-sm">
+      View All Todos
+      </NuxtLink>
+      
+    </div>
+  </div>
+</template>
