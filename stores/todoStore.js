@@ -1,32 +1,21 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { showToast } from '~/utils/toast'
 
 export const useTodoStore = defineStore('todo', () => {
-  const todos = ref([]) 
+  const todos = ref([])
+  const isLoggedIn = ref(false) // <-- track login
 
   const addTodo = (todo) => {
-    todos.value.push({
-      id: Date.now(),
-      completed: false,
-      title: todo.title,
-      startDate: todo.startDate,
-      endDate: todo.endDate,
-    })
-    showToast('Todo added successfully!', 'success')
+    todos.value.push({ id: Date.now(), ...todo, completed: false })
   }
 
-  const updateTodo = (id, updatedTodo) => {
-    const index = todos.value.findIndex(t => t.id === id)
-    if (index !== -1) {
-      todos.value[index] = { ...todos.value[index], ...updatedTodo }
-      showToast('Todo updated successfully!', 'info')
-    }
+  const updateTodo = (id, updated) => {
+    const todo = todos.value.find(t => t.id === id)
+    if (todo) Object.assign(todo, updated)
   }
 
   const deleteTodo = (id) => {
     todos.value = todos.value.filter(t => t.id !== id)
-    showToast('Todo deleted successfully!', 'error')
   }
 
   const toggleTodo = (id) => {
@@ -38,6 +27,18 @@ export const useTodoStore = defineStore('todo', () => {
   const completedTodos = computed(() => todos.value.filter(t => t.completed).length)
   const pendingTodos = computed(() => totalTodos.value - completedTodos.value)
 
+  const login = (email, password) => {
+    if (email === 'admin@test.com' && password === '123456') {
+      isLoggedIn.value = true
+      return true
+    }
+    return false
+  }
+
+  const logout = () => {
+    isLoggedIn.value = false
+  }
+
   return {
     todos,
     addTodo,
@@ -46,6 +47,9 @@ export const useTodoStore = defineStore('todo', () => {
     toggleTodo,
     totalTodos,
     completedTodos,
-    pendingTodos
+    pendingTodos,
+    isLoggedIn,
+    login,
+    logout
   }
 })
