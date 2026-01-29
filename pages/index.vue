@@ -68,6 +68,12 @@ const handleLogin = () => {
         <p class="text-xs text-gray-400 text-center mt-4">
           Demo login → <strong>admin@test.com / 123456</strong>
         </p>
+        <NuxtLink
+  to="/register"
+  class="block text-center mt-3 text-sm text-blue-600 hover:underline"
+>
+  Don't have an account? Register →
+</NuxtLink>
       </div>
 
       <!-- Show Todo App if logged in -->

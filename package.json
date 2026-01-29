@@ -11,7 +11,13 @@
   },
   "dependencies": {
     "@pinia/nuxt": "^0.11.3",
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
+    "body-parser": "^2.2.2",
+    "cors": "^2.8.6",
     "drizzle-orm": "^0.45.1",
+    "express": "^5.2.1",
+    "h3": "2.0.1-rc.11",
     "nuxt": "^4.2.2",
     "pg": "^8.17.2",
     "pinia": "^3.0.4",
@@ -20,6 +26,12 @@
   },
   "devDependencies": {
     "@nuxtjs/tailwindcss": "^6.14.0",
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.1.0",
+    "@types/pg": "^8.16.0",
+    "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.8",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
