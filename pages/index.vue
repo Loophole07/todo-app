@@ -74,6 +74,18 @@ const handleLogin = () => {
 >
   Don't have an account? Register →
 </NuxtLink>
+<p class="text-center mt-4 text-sm text-gray-500">
+  View all registered users →
+  <NuxtLink to="/users" class="text-blue-600 hover:underline font-semibold">
+    Users Panel
+  </NuxtLink>
+</p>
+<p class="text-center mt-4 text-sm text-gray-500">
+  View all todos →
+  <NuxtLink to="/todos" class="text-blue-600 hover:underline font-semibold">
+    todos
+  </NuxtLink>
+</p>
       </div>
 
       <!-- Show Todo App if logged in -->
@@ -121,8 +133,10 @@ const handleLogin = () => {
         >
           Logout
         </button>
+        
       </div>
 
     </div>
+    
   </div>
 </template>

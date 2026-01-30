@@ -1,15 +1,27 @@
-<script setup>
-import { ref } from 'vue'
+<script setup lang="ts">
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import Toast from '~/components/Toast.vue'
+import UsersTable from '~/components/UsersTable.vue'
 
 const router = useRouter()
 
+// Login form state
 const email = ref('')
 const password = ref('')
 const error = ref('')
 
-const handleLogin = () => {
+// Logged in state
+const isLoggedIn = ref(false)
+
+// Users state
+type User = { id: number; name: string; email: string }
+const users = ref<User[]>([])
+const loadingUsers = ref(false)
+const usersError = ref('')
+
+// Handle login
+const handleLogin = async () => {
   error.value = ''
 
   if (!email.value || !password.value) {
@@ -17,10 +29,29 @@ const handleLogin = () => {
     return
   }
 
-  
+  // Simple admin check
   if (email.value === 'admin@test.com' && password.value === '123456') {
-    
-    router.push('/')
+    isLoggedIn.value = true
+    email.value = ''
+    password.value = ''
+
+    // Fetch users from API
+    loadingUsers.value = true
+    usersError.value = ''
+    try {
+      const res = await $fetch<{ success: boolean; users: User[] }>('/api/users')
+      if (res.success) {
+        users.value = res.users
+      } else {
+        usersError.value = 'Failed to fetch users'
+      }
+    } catch (e) {
+      usersError.value = 'Failed to fetch users'
+      console.error(e)
+    } finally {
+      loadingUsers.value = false
+    }
+
   } else {
     error.value = 'Invalid email or password'
   }
@@ -28,9 +59,9 @@ const handleLogin = () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient-to-b from-gray-100 to-gray-200 flex items-center justify-center p-4">
+  <div class="min-h-screen bg-gradient-to-b from-gray-100 to-gray-200 flex flex-col items-center justify-center p-4">
 
-    <div class="w-full max-w-sm bg-white rounded-xl shadow-lg p-6">
+    <div class="w-full max-w-sm bg-white rounded-xl shadow-lg p-6 mb-6">
 
       <!-- Title -->
       <h1 class="text-3xl font-bold text-center text-gray-800 mb-2">
@@ -48,9 +79,8 @@ const handleLogin = () => {
       </p>
 
       <!-- Form -->
-      <form @submit.prevent="handleLogin" class="space-y-4">
+      <form v-if="!isLoggedIn" @submit.prevent="handleLogin" class="space-y-4">
 
-        <!-- Email -->
         <div>
           <label class="text-sm font-medium text-gray-600">Email</label>
           <input
@@ -61,7 +91,6 @@ const handleLogin = () => {
           />
         </div>
 
-        <!-- Password -->
         <div>
           <label class="text-sm font-medium text-gray-600">Password</label>
           <input
@@ -72,7 +101,6 @@ const handleLogin = () => {
           />
         </div>
 
-        <!-- Login Button -->
         <button
           type="submit"
           class="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
@@ -81,12 +109,24 @@ const handleLogin = () => {
         </button>
       </form>
 
-      
-      
-        <!-- Demo login → <strong>admin@test.com / 123456</strong> -->
-      
-
     </div>
 
+    <!-- Users Display Panel (after login) -->
+    <div v-if="isLoggedIn" class="w-full max-w-4xl px-4">
+      <h2 class="text-2xl font-semibold mb-4 text-gray-800 text-center">Registered Users</h2>
+
+      <div v-if="loadingUsers" class="text-center text-gray-500 mb-4">
+        Loading users...
+      </div>
+      <div v-else-if="usersError" class="text-center text-red-500 mb-4">
+        {{ usersError }}
+      </div>
+      <div v-else>
+        <UsersTable :users="users" />
+      </div>
+    </div>
+    
+ 
   </div>
+ 
 </template>

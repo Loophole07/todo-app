@@ -1,27 +1,23 @@
 <script setup lang="ts">
-import TodosTable from '~/components/TodosTable.vue'
+import UsersTable from '~/components/UsersTable.vue'
 
 // Define API response types
-type Todo = {
+type User = {
   id: number
-  title: string
-  description: string
-  completed: boolean
-  start_date: string
-  due_date: string
-  user_id: number
+  name: string
+  email: string
 }
 
-type TodosResponse = {
+type UsersResponse = {
   success: boolean
-  todos: Todo[]
+  users: User[]
 }
 
-// Fetch todos from API
-const { data, pending, error } = await useFetch<TodosResponse>('/api/todos')
+// Fetch users from API
+const { data, pending, error } = await useFetch<UsersResponse>('/api/users')
 
-// Safe computed list of todos
-const todos = computed(() => data.value?.todos ?? [])
+// Safe computed list of users
+const users = computed(() => data.value?.users ?? [])
 </script>
 
 <template>
@@ -37,23 +33,23 @@ const todos = computed(() => data.value?.todos ?? [])
       </NuxtLink>
     </div>
 
-    <div class="max-w-6xl mx-auto px-4">
+    <div class="max-w-4xl mx-auto px-4">
 
       <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">
-        Todos Panel
+        Users Panel
       </h1>
 
       <!-- Loading / Error states -->
       <div v-if="pending" class="text-center text-gray-500">
-        Loading todos...
+        Loading users...
       </div>
 
       <div v-else-if="error" class="text-center text-red-500">
-        Failed to load todos
+        Failed to load users
       </div>
 
-      <!-- Todos Table -->
-      <TodosTable v-else :todos="todos" />
+      <!-- Users Table -->
+      <UsersTable v-else :users="users" />
 
     </div>
   </div>
