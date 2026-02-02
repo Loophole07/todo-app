@@ -1,34 +1,69 @@
-import db from '~/server/db'  // ✅ default import
+import db from '~/server/db'
 import { users } from '~/server/db/schema'
 import bcrypt from 'bcrypt'
-import { defineEventHandler, readBody } from 'h3'
+import { eventHandler, readBody, createError } from 'h3'
+import { eq } from 'drizzle-orm'
 
-export default defineEventHandler(async (event) => {
+type RegisterBody = {
+  name: string
+  email: string
+  password: string
+}
+
+export default eventHandler(async (event) => {
+  const body = await readBody<RegisterBody | undefined>(event)
+
+  if (!body) {
+    return { success: false, message: 'Invalid request body' }
+  }
+
+  const { name, email, password } = body
+
+  if (!name || !email || !password) {
+    return { success: false, message: 'All fields are required' }
+  }
+
   try {
-    const body = await readBody(event)
-    const { name, email, password } = body
-
-    if (!name || !email || !password) {
-      return { success: false, message: 'Please fill all fields' }
+    // Check if user exists
+    let existing
+    try {
+      existing = await db.select().from(users).where(eq(users.email, email))
+    } catch (err) {
+      console.error('Error checking existing user:', err)
+      throw err
     }
 
-    // Check if email already exists
-    const existing = await db.select().from(users).where(users.email.eq(email))
     if (existing.length > 0) {
       return { success: false, message: 'Email already registered' }
     }
 
-    // Hash password and insert
-    const hashedPassword = await bcrypt.hash(password, 10)
-    await db.insert(users).values({
-      name,
-      email,
-      password_hash: hashedPassword
-    })
+    // Hash password
+    let hashedPassword
+    try {
+      hashedPassword = await bcrypt.hash(password, 10)
+    } catch (err) {
+      console.error('Error hashing password:', err)
+      throw err
+    }
+
+   
+    try {
+      await db.insert(users).values({
+        name,
+        email,
+        password_hash: hashedPassword,
+      })
+    } catch (err) {
+      console.error('Error inserting user:', err)
+      throw err
+    }
 
     return { success: true, message: 'User registered successfully' }
-  } catch (err) {
-    console.error('REGISTER ERROR ', err)
-    return { success: false, message: 'Server error' }
+  } catch (error) {
+    console.error('REGISTER ERROR FULL TRACE: ', error)
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Registration failed',
+    })
   }
 })

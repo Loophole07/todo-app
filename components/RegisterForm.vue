@@ -7,90 +7,106 @@ const router = useRouter()
 const name = ref('')
 const email = ref('')
 const password = ref('')
+const confirmPassword = ref('')
 const message = ref('')
+const loading = ref(false)
 
 const handleRegister = async () => {
   message.value = ''
 
-  
+  if (!name.value || !email.value || !password.value || !confirmPassword.value) {
+    message.value = 'Please fill all fields'
+    return
+  }
+
+  if (password.value !== confirmPassword.value) {
+    message.value = 'Passwords do not match'
+    return
+  }
 
   try {
-    const res = await $fetch<{ success: boolean; message: string }>('/api/auth/register', {
-      method: 'POST',
-      body: { name: name.value, email: email.value, password: password.value },
-    })
+    loading.value = true
+
+    const res = await $fetch<{ success: boolean; message: string }>(
+      '/api/auth/register',
+      {
+        method: 'POST',
+        body: {
+          name: name.value,
+          email: email.value,
+          password: password.value
+        }
+      }
+    )
 
     message.value = res.message
-    if (res.success) setTimeout(() => router.push('/'), 1500)
+
+    if (res.success) {
+      setTimeout(() => router.push('/'), 1500)
+    }
   } catch (err) {
     console.error(err)
     message.value = 'Server error'
+  } finally {
+    loading.value = false
   }
 }
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-100 to-blue-50 p-6">
-    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
-      
-      <h2 class="text-3xl font-bold text-center text-gray-800 mb-6">
-        Create Account
-      </h2>
+  <div class="bg-white w-full max-w-md rounded-xl shadow p-6 mx-auto mt-10">
+    <h1 class="text-2xl font-bold text-center mb-6">
+      Registration Form
+    </h1>
 
-      <!-- Success / Error message -->
-      <p 
-        v-if="message" 
-        :class="message.includes('success') ? 'text-green-500' : 'text-red-500'" 
-        class="text-center mb-4 font-medium"
-      >
-        {{ message }}
-      </p>
+    <input
+      v-model="name"
+      type="text"
+      placeholder="Full Name"
+      class="w-full mb-3 px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300"
+    />
 
-      <form @submit.prevent="handleRegister" class="space-y-5">
+    <input
+      v-model="email"
+      type="email"
+      placeholder="Email"
+      class="w-full mb-3 px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300"
+    />
 
-        <div>
-          <label class="block text-sm font-semibold text-gray-600 mb-1">Name</label>
-          <input 
-            v-model="name" 
-            type="text" 
-            placeholder="John Doe" 
-            class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none transition"
-          />
-        </div>
+    <input
+      v-model="password"
+      type="password"
+      placeholder="Password"
+      class="w-full mb-3 px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300"
+    />
 
-        <div>
-          <label class="block text-sm font-semibold text-gray-600 mb-1">Email</label>
-          <input 
-            v-model="email" 
-            type="email" 
-            placeholder="john@example.com" 
-            class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none transition"
-          />
-        </div>
+    <input
+      v-model="confirmPassword"
+      type="password"
+      placeholder="Confirm Password"
+      class="w-full mb-4 px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300"
+    />
 
-        <div>
-          <label class="block text-sm font-semibold text-gray-600 mb-1">Password</label>
-          <input 
-            v-model="password" 
-            type="password" 
-            placeholder="••••••••" 
-            class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none transition"
-          />
-        </div>
+    <!-- Register button -->
+    <button
+      @click="handleRegister"
+      :disabled="loading"
+      class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {{ loading ? 'Registering...' : 'Register' }}
+    </button>
 
-        <button 
-          type="submit" 
-          class="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition"
-        >
-          Register
-        </button>
-      </form>
+    <!-- Go to Index button -->
+    <button
+      @click="router.push('/')"
+      class="w-full mt-3 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300"
+    >
+      Go to Home
+    </button>
 
-      <p class="text-center text-gray-500 text-sm mt-4">
-        Already have an account? 
-        <router-link to="/" class="text-blue-600 font-medium hover:underline">Login</router-link>
-      </p>
-      
-    </div>
+    <p v-if="message" class="text-center mt-4 text-sm text-red-500">
+      {{ message }}
+    </p>
   </div>
 </template>
+

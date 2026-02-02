@@ -10,6 +10,7 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@heroicons/vue": "^2.2.0",
     "@pinia/nuxt": "^0.11.3",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
