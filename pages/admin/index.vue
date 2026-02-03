@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import UsersTable from '~/components/UsersTable.vue'
 import TodosTable from '~/components/TodosTable.vue'
+import CategoryUserList from '~/components/analytics/CategoryUserList.vue'
 
 // --- Sidebar Links ---
 const links = [
@@ -34,6 +35,9 @@ const todosError = ref('')
 
 // --- Category Analytics ---
 const categoryStats = ref<Record<string, number>>({})
+
+// --- Selected Category ---
+const selectedCategory = ref<string | null>(null)
 
 const fetchStats = async () => {
   try {
@@ -85,6 +89,12 @@ const fetchCategoryStats = async () => {
   }
 }
 
+// --- When category clicked ---
+const viewCategoryUsers = (category: string) => {
+  selectedCategory.value = category
+  activeTab.value = 'category-users'
+}
+
 onMounted(() => {
   fetchStats()
   fetchUsers()
@@ -102,7 +112,7 @@ onMounted(() => {
         <button
           v-for="link in links"
           :key="link.id"
-          @click="activeTab = link.id"
+          @click="activeTab = link.id; selectedCategory = null"
           :class="[
             'p-2 rounded text-left hover:bg-gray-200 transition',
             activeTab === link.id ? 'bg-gray-200 font-semibold' : ''
@@ -117,7 +127,9 @@ onMounted(() => {
     <div class="flex-1 flex flex-col">
       <!-- Navbar -->
       <header class="bg-white shadow p-4 flex justify-between items-center">
-        <h1 class="text-xl font-semibold capitalize">{{ activeTab }}</h1>
+        <h1 class="text-xl font-semibold capitalize">
+          {{ activeTab === 'category-users' ? selectedCategory : activeTab }}
+        </h1>
         <NuxtLink
           to="/"
           class="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600"
@@ -128,6 +140,7 @@ onMounted(() => {
 
       <!-- Main Content Area -->
       <main class="p-6 flex-1 overflow-auto">
+
         <!-- Dashboard Tab -->
         <div v-if="activeTab === 'dashboard'" class="space-y-6">
           <!-- Stats Cards -->
@@ -151,7 +164,8 @@ onMounted(() => {
               <div
                 v-for="(count, category) in categoryStats"
                 :key="category"
-                class="border rounded-lg p-4 hover:shadow transition"
+                class="border rounded-lg p-4 hover:shadow transition cursor-pointer"
+                @click="viewCategoryUsers(category)"
               >
                 <p class="text-sm text-gray-500">{{ category }}</p>
                 <p class="text-3xl font-bold text-gray-800 mt-1">{{ count }}</p>
@@ -181,6 +195,12 @@ onMounted(() => {
           <div v-if="todosLoading" class="text-gray-500 text-center py-10">Loading todos...</div>
           <div v-else-if="todosError" class="text-red-500 text-center py-10">{{ todosError }}</div>
           <TodosTable v-else :todos="todos" />
+        </div>
+
+        <!-- Category Users Tab -->
+        <div v-if="activeTab === 'category-users'" class="bg-white shadow rounded-xl p-6">
+          <CategoryUserList :category="selectedCategory ?? ''" />
+
         </div>
 
         <!-- Settings Tab -->

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import TodosTable from '~/components/TodosTable.vue'
 
-// API types
+
 type Todo = {
   id: number
   title: string
@@ -17,10 +17,10 @@ type TodosResponse = {
   todos: Todo[]
 }
 
-// Fetch todos from API
+
 const { data, pending, error } = await useFetch<TodosResponse>('/api/todos')
 
-// Computed safe todos array
+
 const todos = computed(() => data.value?.todos ?? [])
 </script>
 

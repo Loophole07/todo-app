@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import UsersTable from '~/components/UsersTable.vue'
 
-// API types
+
 type User = {
   id: number
   name: string
@@ -13,17 +13,17 @@ type UsersResponse = {
   users: User[]
 }
 
-// Fetch users from API
+
 const { data, pending, error } = await useFetch<UsersResponse>('/api/users')
 
-// Computed safe users array
+
 const users = computed(() => data.value?.users ?? [])
 </script>
 
 <template>
   <div class="min-h-screen bg-gray-100 py-10 relative">
 
-    <!-- Back to Admin link -->
+    
     <div class="absolute top-4 right-4">
       <NuxtLink 
         to="/admin" 

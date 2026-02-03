@@ -13,5 +13,9 @@ export function categorizeTodo(text: string): string[] {
     }
   }
 
+  if (matchedCategories.size === 0) {
+    matchedCategories.add('General')
+  }
+
   return Array.from(matchedCategories)
 }

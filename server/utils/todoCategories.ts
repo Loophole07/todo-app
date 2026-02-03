@@ -13,5 +13,6 @@ export const TODO_CATEGORIES: Record<string, string[]> = {
   ],
   Personal: [
     'shopping', 'clean', 'travel', 'family', 'call', 'buy'
-  ]
+  ],
+  General: []
 }
