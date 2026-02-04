@@ -1,19 +1,12 @@
-CREATE TABLE "admins" (
-	"id" serial PRIMARY KEY NOT NULL,
-	"name" varchar(100) NOT NULL,
-	"email" varchar(150) NOT NULL,
-	"password_hash" varchar(255) NOT NULL,
-	CONSTRAINT "admins_email_unique" UNIQUE("email")
-);
---> statement-breakpoint
 CREATE TABLE "todos" (
 	"id" serial PRIMARY KEY NOT NULL,
-	"title" varchar(200) NOT NULL,
-	"description" varchar(500),
+	"title" varchar(255) NOT NULL,
+	"description" text,
+	"category" varchar(50) NOT NULL,
 	"completed" boolean DEFAULT false,
-	"start_date" date,
-	"due_date" date,
-	"user_id" integer NOT NULL
+	"start_date" timestamp DEFAULT NOW(),
+	"due_date" timestamp,
+	"user_id" integer
 );
 --> statement-breakpoint
 CREATE TABLE "users" (
@@ -21,7 +14,6 @@ CREATE TABLE "users" (
 	"name" varchar(100) NOT NULL,
 	"email" varchar(150) NOT NULL,
 	"password_hash" varchar(255) NOT NULL,
-	"created_at" timestamp DEFAULT now(),
 	CONSTRAINT "users_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint

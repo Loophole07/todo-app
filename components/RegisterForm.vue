@@ -24,9 +24,9 @@ const handleRegister = async () => {
     return
   }
 
-  try {
-    loading.value = true
+  loading.value = true
 
+  try {
     const res = await $fetch<{ success: boolean; message: string }>(
       '/api/auth/register',
       {
@@ -34,8 +34,8 @@ const handleRegister = async () => {
         body: {
           name: name.value,
           email: email.value,
-          password: password.value
-        }
+          password: password.value,
+        },
       }
     )
 
@@ -45,7 +45,7 @@ const handleRegister = async () => {
       setTimeout(() => router.push('/'), 1500)
     }
   } catch (err) {
-    console.error(err)
+    console.error('REGISTER ERROR 👉', err)
     message.value = 'Server error'
   } finally {
     loading.value = false
@@ -87,7 +87,6 @@ const handleRegister = async () => {
       class="w-full mb-4 px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300"
     />
 
-    <!-- Register button -->
     <button
       @click="handleRegister"
       :disabled="loading"
@@ -96,7 +95,6 @@ const handleRegister = async () => {
       {{ loading ? 'Registering...' : 'Register' }}
     </button>
 
-    <!-- Go to Index button -->
     <button
       @click="router.push('/')"
       class="w-full mt-3 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300"
@@ -104,9 +102,12 @@ const handleRegister = async () => {
       Go to Home
     </button>
 
-    <p v-if="message" class="text-center mt-4 text-sm text-red-500">
+    <p
+      v-if="message"
+      class="text-center mt-4 text-sm"
+      :class="message.includes('success') ? 'text-green-600' : 'text-red-500'"
+    >
       {{ message }}
     </p>
   </div>
 </template>
-

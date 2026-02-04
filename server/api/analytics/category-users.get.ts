@@ -1,57 +1,73 @@
+import { eventHandler } from 'h3'
 import db from '~/server/db'
-import { users } from '~/server/db/schema'
-import { defineEventHandler } from 'h3'
-import { todos } from '~/server/db/schema'
-import { categorizeTodo } from '~/server/utils/categorizeTodo'
+import { todos, users } from '~/server/db/schema'
+import { eq, inArray } from 'drizzle-orm'
 
-export default defineEventHandler(async (event) => {
+export default eventHandler(async (event) => {
   try {
-    // --- Get category from query ---
-    const url = new URL(event.req.url!, 'http://localhost') // base required for URL parsing
-    const category = url.searchParams.get('category')
+    // --- Safe URL parsing ---
+    const reqUrl = event.req.url || '/'                // fallback
+    const baseUrl = 'http://localhost'                // dummy base for URL
+    const url = new URL(reqUrl, baseUrl)
+
+    const category = url.searchParams.get('category')?.trim()
+    const page = Number(url.searchParams.get('page') ?? '1')
+    const perPage = Number(url.searchParams.get('perPage') ?? '10')
 
     if (!category) {
-      return { success: false, users: [], message: 'Category is required' }
+      return {
+        success: false,
+        users: [],
+        total: 0,
+        message: 'Category is required'
+      }
     }
 
-    // --- Fetch all todos with user IDs ---
-    const allTodos = await db.select({
-      title: todos.title,
-      description: todos.description,
-      user_id: todos.user_id
-    }).from(todos)
+    // --- Fetch todos in this category ---
+    const todosInCategory = await db
+      .select({ user_id: todos.user_id })
+      .from(todos)
+      .where(eq(todos.category, category))
 
-    // --- Collect user IDs for the category ---
-    const categorizedUserIds = new Set<number>()
+    // --- Extract unique user IDs ---
+    const userIds = Array.from(
+      new Set(
+        todosInCategory
+          .map(t => t.user_id)
+          .filter((id): id is number => id !== null)
+      )
+    )
 
-    allTodos.forEach(todo => {
-      const text = `${todo.title} ${todo.description ?? ''}`
-      const categories = categorizeTodo(text)
+    if (userIds.length === 0) {
+      return { success: true, users: [], total: 0 }
+    }
 
-      if (categories.includes(category) && todo.user_id !== null) {
-        categorizedUserIds.add(todo.user_id)
-      }
-    })
+    // --- Server-side pagination ---
+    const total = userIds.length
+    const paginatedIds = userIds.slice((page - 1) * perPage, page * perPage)
 
-    // --- Fetch users matching those IDs ---
-    const allUsers = await db.select({
-      id: users.id,
-      name: users.name,
-      email: users.email
-    }).from(users)
-
-    const filteredUsers = allUsers.filter(u => categorizedUserIds.has(u.id))
+    // --- Fetch user details ---
+    const usersInCategory = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email
+      })
+      .from(users)
+      .where(inArray(users.id, paginatedIds))
 
     return {
       success: true,
-      users: filteredUsers
+      users: usersInCategory,
+      total
     }
   } catch (err) {
     console.error('CATEGORY USERS FETCH ERROR', err)
     return {
       success: false,
       users: [],
-      message: 'Failed to fetch users for category'
+      total: 0,
+      message: 'Failed to fetch users'
     }
   }
 })

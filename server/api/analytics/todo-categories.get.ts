@@ -1,29 +1,26 @@
 import db from '~/server/db'
 import { todos } from '~/server/db/schema'
-import { categorizeTodo } from '~/server/utils/categorizeTodo'
 import { defineEventHandler } from 'h3'
+import { eq } from 'drizzle-orm'
 
 export default defineEventHandler(async () => {
   try {
-    // Fetch all todos with user_id
+    // Fetch category from todos
     const allTodos = await db
       .select({
-        title: todos.title,
-        description: todos.description,
+        category: todos.category,
       })
       .from(todos)
+      .where(eq(todos.completed, false)) // optional: remove if not needed
 
-    // Build category stats with only counts
-    // Format: { category: count }
+    // Build category → count map
     const categoryMap: Record<string, number> = {}
 
     allTodos.forEach(todo => {
-      const text = `${todo.title} ${todo.description ?? ''}`
-      const categories = categorizeTodo(text)
+      if (!todo.category) return
 
-      categories.forEach(category => {
-        categoryMap[category] = (categoryMap[category] || 0) + 1
-      })
+      categoryMap[todo.category] =
+        (categoryMap[todo.category] || 0) + 1
     })
 
     return {

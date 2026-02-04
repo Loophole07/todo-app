@@ -4,97 +4,86 @@ import UsersTable from '~/components/UsersTable.vue'
 import TodosTable from '~/components/TodosTable.vue'
 import CategoryUserList from '~/components/analytics/CategoryUserList.vue'
 
-// --- Sidebar Links ---
+//sidebar
 const links = [
   { title: 'Dashboard', id: 'dashboard' },
   { title: 'Users', id: 'users' },
   { title: 'Todos', id: 'todos' },
-  { title: 'Settings', id: 'settings' },
 ]
 
-const activeTab = ref('dashboard')
-
-// --- Stats ---
+//stats
 type Stat = { title: string; value: number }
 const stats = ref<Stat[]>([
   { title: 'Total Users', value: 0 },
   { title: 'Total Todos', value: 0 },
 ])
 
-// --- Users ---
+//users
 type User = { id: number; name: string; email: string }
 const users = ref<User[]>([])
 const usersLoading = ref(true)
 const usersError = ref('')
 
-// --- Todos ---
-type Todo = { id: number; title: string; description: string; completed: boolean; start_date: string; due_date: string; user_id: number }
+//todos
+type Todo = {
+  id: number
+  title: string
+  description: string
+  completed: boolean
+  start_date: string
+  due_date: string
+  user_id: number
+  category: string
+}
 const todos = ref<Todo[]>([])
 const todosLoading = ref(true)
 const todosError = ref('')
 
-// --- Category Analytics ---
+//analytics
 const categoryStats = ref<Record<string, number>>({})
 
-// --- Selected Category ---
+//select category
 const selectedCategory = ref<string | null>(null)
+const activeTab = ref('dashboard')
 
+//stats
 const fetchStats = async () => {
-  try {
-    const usersRes = await $fetch<{ success: boolean; totalUsers: number }>('/api/users/get-count')
-    const todosRes = await $fetch<{ success: boolean; totalTodos: number }>('/api/todos/get-count')
-    const usersStat = stats.value.find(s => s.title === 'Total Users')
-    const todosStat = stats.value.find(s => s.title === 'Total Todos')
-    if (usersStat) usersStat.value = usersRes?.totalUsers ?? 0
-    if (todosStat) todosStat.value = todosRes?.totalTodos ?? 0
-  } catch (err) {
-    console.error('Error fetching stats:', err)
-    const usersStat = stats.value.find(s => s.title === 'Total Users')
-    const todosStat = stats.value.find(s => s.title === 'Total Todos')
-    if (usersStat) usersStat.value = 0
-    if (todosStat) todosStat.value = 0
-  }
+  const usersRes = await $fetch<{ success: boolean; totalUsers: number }>('/api/users/get-count')
+  const todosRes = await $fetch<{ success: boolean; totalTodos: number }>('/api/todos/get-count')
+
+  const usersStat = stats.value.find(s => s.title === 'Total Users')
+  const todosStat = stats.value.find(s => s.title === 'Total Todos')
+
+  if (usersStat) usersStat.value = usersRes?.totalUsers ?? 0
+  if (todosStat) todosStat.value = todosRes?.totalTodos ?? 0
 }
 
 const fetchUsers = async () => {
   usersLoading.value = true
-  try {
-    const res = await $fetch<{ success: boolean; users: User[] }>('/api/users')
-    users.value = res?.users ?? []
-  } catch (err) {
-    usersError.value = 'Failed to load users'
-  } finally {
-    usersLoading.value = false
-  }
+  const res = await $fetch<{ success: boolean; users: User[] }>('/api/users')
+  users.value = res?.users ?? []
+  usersLoading.value = false
 }
 
 const fetchTodos = async () => {
   todosLoading.value = true
-  try {
-    const res = await $fetch<{ success: boolean; todos: Todo[] }>('/api/todos')
-    todos.value = res?.todos ?? []
-  } catch (err) {
-    todosError.value = 'Failed to load todos'
-  } finally {
-    todosLoading.value = false
-  }
+  const res = await $fetch<{ success: boolean; todos: Todo[] }>('/api/todos')
+  todos.value = res?.todos ?? []
+  todosLoading.value = false
 }
 
 const fetchCategoryStats = async () => {
-  try {
-    const res = await $fetch<{ success: boolean; data: Record<string, number> }>('/api/analytics/todo-categories')
-    if (res?.success) categoryStats.value = res.data
-  } catch (err) {
-    console.error('Failed to fetch category stats:', err)
-  }
+  const res = await $fetch<{ success: boolean; data: Record<string, number> }>('/api/analytics/todo-categories')
+  if (res?.success) categoryStats.value = res.data
 }
 
-// --- When category clicked ---
+//clicked
 const viewCategoryUsers = (category: string) => {
   selectedCategory.value = category
   activeTab.value = 'category-users'
 }
 
+//intial
 onMounted(() => {
   fetchStats()
   fetchUsers()
@@ -104,18 +93,18 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-gray-100">
+  <div class="flex min-h-screen bg-gray-50">
     <!-- Sidebar -->
-    <aside class="w-64 bg-white shadow flex flex-col p-4">
-      <h2 class="text-2xl font-bold mb-6">Admin Panel</h2>
+    <aside class="w-64 bg-white shadow-lg flex flex-col p-6">
+      <h2 class="text-3xl font-bold mb-8 text-blue-600">Admin Panel</h2>
       <nav class="flex flex-col gap-3">
         <button
           v-for="link in links"
           :key="link.id"
           @click="activeTab = link.id; selectedCategory = null"
           :class="[
-            'p-2 rounded text-left hover:bg-gray-200 transition',
-            activeTab === link.id ? 'bg-gray-200 font-semibold' : ''
+            'p-3 rounded-lg text-left font-medium hover:bg-blue-100 transition',
+            activeTab === link.id ? 'bg-blue-100 text-blue-700 shadow-inner' : 'text-gray-700'
           ]"
         >
           {{ link.title }}
@@ -126,54 +115,57 @@ onMounted(() => {
     <!-- Main Content -->
     <div class="flex-1 flex flex-col">
       <!-- Navbar -->
-      <header class="bg-white shadow p-4 flex justify-between items-center">
-        <h1 class="text-xl font-semibold capitalize">
+      <header class="bg-white shadow-sm p-4 flex justify-between items-center sticky top-0 z-10">
+        <h1 class="text-2xl font-semibold capitalize text-gray-800">
           {{ activeTab === 'category-users' ? selectedCategory : activeTab }}
         </h1>
-        <NuxtLink
-          to="/"
-          class="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600"
-        >
-          Go to Home
-        </NuxtLink>
       </header>
 
-      <!-- Main Content Area -->
-      <main class="p-6 flex-1 overflow-auto">
-
-        <!-- Dashboard Tab -->
+     
+      <main class="p-6 flex-1 flex flex-col gap-6 overflow-hidden">
+       
         <div v-if="activeTab === 'dashboard'" class="space-y-6">
-          <!-- Stats Cards -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <div
               v-for="(stat, index) in stats"
               :key="index"
-              class="bg-white p-5 rounded-xl shadow hover:shadow-lg transition"
+              class="bg-gradient-to-r from-blue-100 to-blue-50 p-6 rounded-2xl shadow hover:shadow-xl transition flex items-center gap-4"
             >
-              <h3 class="text-lg font-semibold text-gray-700">{{ stat.title }}</h3>
-              <p class="text-3xl font-bold mt-2 text-gray-900">{{ stat.value }}</p>
+              <div class="text-blue-600 text-4xl">
+                <svg v-if="stat.title === 'Total Users'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-10 h-10">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11c1.656 0 3-1.344 3-3S17.656 5 16 5s-3 1.344-3 3 1.344 3 3 3zM8 11c1.656 0 3-1.344 3-3S9.656 5 8 5 5 6.344 5 8s1.344 3 3 3zM8 13c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zM16 13c-.29 0-.62.02-.97.05 1.45.91 2.97 1.65 3.97 2.21V19h4v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                </svg>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-10 h-10">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v4a1 1 0 001 1h3m10 0h3a1 1 0 001-1V7m-5 10v-4m0 0V7m0 6h-4m4 0h4M3 21h18M3 21v-2a4 4 0 014-4h10a4 4 0 014 4v2"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold text-gray-700">{{ stat.title }}</h3>
+                <p class="text-3xl font-bold mt-1 text-gray-900">{{ stat.value }}</p>
+              </div>
             </div>
           </div>
 
           <!-- Category Analytics -->
-          <div class="bg-white rounded-xl shadow p-6">
-            <h2 class="text-xl font-semibold mb-4">
-              Most Common Help Areas
-            </h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div class="bg-white rounded-2xl shadow p-6">
+            <h2 class="text-xl font-semibold mb-6 text-gray-800">Most Common Help Areas</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
               <div
                 v-for="(count, category) in categoryStats"
                 :key="category"
-                class="border rounded-lg p-4 hover:shadow transition cursor-pointer"
+                class="p-6 border border-gray-200 rounded-2xl hover:shadow-lg cursor-pointer transition flex flex-col items-center justify-center"
                 @click="viewCategoryUsers(category)"
               >
-                <p class="text-sm text-gray-500">{{ category }}</p>
-                <p class="text-3xl font-bold text-gray-800 mt-1">{{ count }}</p>
-                <p class="text-xs text-gray-400 mt-1">todos</p>
+                <p class="text-gray-500 text-sm">{{ category }}</p>
+                <p class="text-4xl font-bold text-gray-800 mt-2">{{ count }}</p>
+                <p class="text-gray-400 text-xs mt-1">todos</p>
+                <div class="w-12 h-1 bg-blue-400 rounded-full mt-3"></div>
               </div>
+
               <p
                 v-if="Object.keys(categoryStats).length === 0"
-                class="text-center text-gray-500 col-span-full py-6"
+                class="text-center text-gray-400 col-span-full py-10"
               >
                 No analytics data available
               </p>
@@ -181,51 +173,28 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Users Tab -->
-        <div v-if="activeTab === 'users'" class="bg-white shadow rounded-xl p-6">
-          <h2 class="text-xl font-semibold mb-4">Users Panel</h2>
-          <div v-if="usersLoading" class="text-gray-500 text-center py-10">Loading users...</div>
-          <div v-else-if="usersError" class="text-red-500 text-center py-10">{{ usersError }}</div>
-          <UsersTable v-else :users="users" />
+       
+        <div v-if="activeTab === 'category-users' && selectedCategory">
+          <CategoryUserList v-if="selectedCategory" :category="selectedCategory" />
         </div>
 
-        <!-- Todos Tab -->
-        <div v-if="activeTab === 'todos'" class="bg-white shadow rounded-xl p-6">
-          <h2 class="text-xl font-semibold mb-4">Todos Panel</h2>
-          <div v-if="todosLoading" class="text-gray-500 text-center py-10">Loading todos...</div>
-          <div v-else-if="todosError" class="text-red-500 text-center py-10">{{ todosError }}</div>
-          <TodosTable v-else :todos="todos" />
+    
+        <div v-if="activeTab === 'users'" class="bg-white rounded-2xl shadow p-6">
+          <UsersTable v-if="!usersLoading && !usersError" :users="users" />
+          <div v-else-if="usersLoading" class="text-gray-500 text-center py-20 text-lg font-medium">
+            Loading users...
+          </div>
+          <div v-else class="text-red-500 text-center py-20 text-lg font-medium">{{ usersError }}</div>
         </div>
 
-        <!-- Category Users Tab -->
-        <div v-if="activeTab === 'category-users'" class="bg-white shadow rounded-xl p-6">
-          <CategoryUserList :category="selectedCategory ?? ''" />
-
+       
+        <div v-if="activeTab === 'todos'" class="bg-white rounded-2xl shadow p-6">
+          <TodosTable v-if="!todosLoading && !todosError" :todos="todos" />
+          <div v-else-if="todosLoading" class="text-gray-500 text-center py-20 text-lg font-medium">
+            Loading todos...
+          </div>
+          <div v-else class="text-red-500 text-center py-20 text-lg font-medium">{{ todosError }}</div>
         </div>
-
-        <!-- Settings Tab -->
-        <div v-if="activeTab === 'settings'" class="bg-white shadow rounded-xl p-6 max-w-lg">
-          <h2 class="text-xl font-semibold mb-4">Settings</h2>
-          <form class="space-y-4">
-            <div>
-              <label class="block mb-1 font-medium">Username</label>
-              <input type="text" class="w-full border p-2 rounded" placeholder="Admin" />
-            </div>
-            <div>
-              <label class="block mb-1 font-medium">Email</label>
-              <input type="email" class="w-full border p-2 rounded" placeholder="admin@example.com" />
-            </div>
-            <div>
-              <label class="block mb-1 font-medium">Password</label>
-              <input type="password" class="w-full border p-2 rounded" placeholder="••••••" />
-            </div>
-            <div class="flex justify-end gap-2">
-              <button type="button" class="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400">Reset</button>
-              <button type="button" class="px-4 py-2 rounded bg-green-500 text-white hover:bg-green-600">Save</button>
-            </div>
-          </form>
-        </div>
-
       </main>
     </div>
   </div>
@@ -234,5 +203,8 @@ onMounted(() => {
 <style scoped>
 body {
   font-family: 'Inter', sans-serif;
+}
+main {
+  overflow: hidden;
 }
 </style>
