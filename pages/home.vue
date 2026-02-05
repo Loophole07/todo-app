@@ -1,5 +1,3 @@
-
-
 <template>
   <div class="min-h-screen bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 py-10 px-4">
     <div class="max-w-3xl mx-auto">
@@ -39,24 +37,26 @@
           Want to view, edit, or complete your tasks?
         </p>
 
+        <!-- Home Link Button -->
+        <NuxtLink
+          to="/"
+          class="block text-center bg-white/80 backdrop-blur border border-gray-600
+                 text-gray-800 py-2.5 rounded-lg font-semibold
+                 hover:bg-gray-50 transition mb-3"
+        >
+          🏠 Back to Home
+        </NuxtLink>
+
         <!-- Manage Todos Button -->
         <NuxtLink
-          to="/todos"
+          to="/todos/create"
           class="block text-center bg-white/80 backdrop-blur border border-blue-600
                  text-blue-600 py-2.5 rounded-lg font-semibold
                  hover:bg-blue-50 transition"
         >
-          📋 Manage Todos →
+          📋 create Todos →
         </NuxtLink>
 
-        <!-- Logout Button -->
-        <!-- <button
-          @click="store.logout()"
-          class="block w-full mt-4 bg-gradient-to-r from-red-500 to-pink-500
-                 text-white py-2 rounded-lg hover:opacity-90 transition"
-        >
-          Logout
-        </button> -->
       </div>
 
     </div>
