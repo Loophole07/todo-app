@@ -10,7 +10,7 @@ type RegisterBody = {
   password: string
 }
 
-// 🔥 Manual body reader (version-safe)
+
 const readJsonBody = async <T>(event: any): Promise<T> => {
   return new Promise((resolve, reject) => {
     let body = ''

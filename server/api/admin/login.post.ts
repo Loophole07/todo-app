@@ -1,7 +1,9 @@
+
 import db from '~/server/db'
 import { admin } from '~/server/db/schema'
-import { eventHandler, createError } from 'h3'
+import { eventHandler } from 'h3'
 import { eq } from 'drizzle-orm'
+import cookie from 'cookie'
 
 type AdminLoginBody = {
   email: string
@@ -11,27 +13,21 @@ type AdminLoginBody = {
 export default eventHandler(async (event) => {
   let body: AdminLoginBody
 
+  // --- Safely parse JSON body ---
   try {
-    // --- Safely read raw request body ---
     const raw = await new Promise<string>((resolve, reject) => {
       let data = ''
-      event.node?.req.on('data', (chunk: any) => {
-        data += chunk
-      })
+      event.node?.req.on('data', (chunk: any) => (data += chunk))
       event.node?.req.on('end', () => resolve(data))
-      event.node?.req.on('error', (err: any) => reject(err))
+      event.node?.req.on('error', reject)
     })
-
     body = JSON.parse(raw)
   } catch (err) {
-    return { success: false, message: 'Invalid JSON body' }
+    return { success: false, message: 'Invalid request body' }
   }
 
   const { email, password } = body
-
-  if (!email || !password) {
-    return { success: false, message: 'Email and password are required' }
-  }
+  if (!email || !password) return { success: false, message: 'Email and password are required' }
 
   try {
     // --- Find admin by email ---
@@ -43,18 +39,29 @@ export default eventHandler(async (event) => {
 
     if (!adminUser) return { success: false, message: 'Invalid credentials' }
 
-    // --- Plain-text password check ---
+    // --- Since password is plain text (not hashed) ---
     if (password !== adminUser.password_hash) {
       return { success: false, message: 'Invalid credentials' }
     }
 
+    // --- Set HTTP-only cookie for session ---
+    event.node?.res?.setHeader(
+      'Set-Cookie',
+      cookie.serialize('admin_session', adminUser.id.toString(), {
+        httpOnly: true,
+        path: '/',
+        maxAge: 60 * 60 * 24, // 1 day
+      })
+    )
+
     return {
       success: true,
       message: 'Login successful',
+      redirect: '/admin', // frontend can use this to navigate
       admin: { id: adminUser.id, username: adminUser.username, email: adminUser.email },
     }
-  } catch (error: any) {
-    console.error('ADMIN LOGIN ERROR 👉', error)
-    return createError({ statusCode: 500, statusMessage: 'Login failed' })
+  } catch (err) {
+    console.error('ADMIN LOGIN ERROR 👉', err)
+    return { success: false, message: 'Server error, try again later' }
   }
 })

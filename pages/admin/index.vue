@@ -1,30 +1,33 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import UsersTable from '~/components/UsersTable.vue'
 import TodosTable from '~/components/TodosTable.vue'
 import CategoryUserList from '~/components/analytics/CategoryUserList.vue'
 
-//sidebar
+const router = useRouter()
+
+// Sidebar links
 const links = [
   { title: 'Dashboard', id: 'dashboard' },
   { title: 'Users', id: 'users' },
   { title: 'Todos', id: 'todos' },
 ]
 
-//stats
+// Stats
 type Stat = { title: string; value: number }
 const stats = ref<Stat[]>([
   { title: 'Total Users', value: 0 },
   { title: 'Total Todos', value: 0 },
 ])
 
-//users
+// Users
 type User = { id: number; name: string; email: string }
 const users = ref<User[]>([])
 const usersLoading = ref(true)
 const usersError = ref('')
 
-//todos
+// Todos
 type Todo = {
   id: number
   title: string
@@ -39,51 +42,90 @@ const todos = ref<Todo[]>([])
 const todosLoading = ref(true)
 const todosError = ref('')
 
-//analytics
+// Analytics
 const categoryStats = ref<Record<string, number>>({})
-
-//select category
 const selectedCategory = ref<string | null>(null)
 const activeTab = ref('dashboard')
 
-//stats
+// Fetch stats
 const fetchStats = async () => {
-  const usersRes = await $fetch<{ success: boolean; totalUsers: number }>('/api/users/get-count')
-  const todosRes = await $fetch<{ success: boolean; totalTodos: number }>('/api/todos/get-count')
+  try {
+    const usersRes = await $fetch<{ success: boolean; totalUsers: number }>('/api/users/get-count')
+    const todosRes = await $fetch<{ success: boolean; totalTodos: number }>('/api/todos/get-count')
 
-  const usersStat = stats.value.find(s => s.title === 'Total Users')
-  const todosStat = stats.value.find(s => s.title === 'Total Todos')
-
-  if (usersStat) usersStat.value = usersRes?.totalUsers ?? 0
-  if (todosStat) todosStat.value = todosRes?.totalTodos ?? 0
+    stats.value.find(s => s.title === 'Total Users')!.value = usersRes?.totalUsers ?? 0
+    stats.value.find(s => s.title === 'Total Todos')!.value = todosRes?.totalTodos ?? 0
+  } catch (err) {
+    console.error('FETCH STATS ERROR ', err)
+  }
 }
 
+// Fetch users
 const fetchUsers = async () => {
   usersLoading.value = true
-  const res = await $fetch<{ success: boolean; users: User[] }>('/api/users')
-  users.value = res?.users ?? []
-  usersLoading.value = false
+  try {
+    const res = await $fetch<{ success: boolean; users: User[] }>('/api/users')
+    users.value = res?.users ?? []
+  } catch (err) {
+    console.error('FETCH USERS ERROR ', err)
+    usersError.value = 'Failed to fetch users'
+  } finally {
+    usersLoading.value = false
+  }
 }
 
+// Fetch todos
 const fetchTodos = async () => {
   todosLoading.value = true
-  const res = await $fetch<{ success: boolean; todos: Todo[] }>('/api/todos')
-  todos.value = res?.todos ?? []
-  todosLoading.value = false
+  try {
+    const res = await $fetch<{ success: boolean; todos: Todo[] }>('/api/todos')
+    todos.value = res?.todos ?? []
+  } catch (err) {
+    console.error('FETCH TODOS ERROR 👉', err)
+    todosError.value = 'Failed to fetch todos'
+  } finally {
+    todosLoading.value = false
+  }
 }
 
+// Fetch category stats
 const fetchCategoryStats = async () => {
-  const res = await $fetch<{ success: boolean; data: Record<string, number> }>('/api/analytics/todo-categories')
-  if (res?.success) categoryStats.value = res.data
+  try {
+    const res = await $fetch<{ success: boolean; data: Record<string, number> }>('/api/analytics/todo-categories')
+    if (res?.success) categoryStats.value = res.data
+  } catch (err) {
+    console.error('FETCH CATEGORY STATS ERROR 👉', err)
+  }
 }
 
-//clicked
+// View users by category
 const viewCategoryUsers = (category: string) => {
   selectedCategory.value = category
   activeTab.value = 'category-users'
 }
 
-//intial
+// Logout function
+const logout = async () => {
+  if (!confirm('Are you sure you want to logout?')) return
+
+  try {
+    // Use POST method
+    const res = await $fetch<{ success: boolean; message: string }>('/api/admin/logout', {
+      method: 'POST',
+    })
+
+    if (res.success) {
+      alert(res.message)
+      router.push('/') // redirect to login page
+    }
+  } catch (err) {
+    console.error('LOGOUT ERROR 👉', err)
+    alert('Failed to logout')
+  }
+}
+
+
+// Initial fetch
 onMounted(() => {
   fetchStats()
   fetchUsers()
@@ -96,8 +138,17 @@ onMounted(() => {
   <div class="flex min-h-screen bg-gray-50">
     <!-- Sidebar -->
     <aside class="w-64 bg-white shadow-lg flex flex-col p-6">
-      <h2 class="text-3xl font-bold mb-8 text-blue-600">Admin Panel</h2>
-      <nav class="flex flex-col gap-3">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-3xl font-bold text-blue-600">Admin Panel</h2>
+        <button
+          @click="logout"
+          class="text-sm bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
+        >
+          Logout
+        </button>
+      </div>
+
+      <nav class="flex flex-col gap-3 mt-4">
         <button
           v-for="link in links"
           :key="link.id"
@@ -114,18 +165,16 @@ onMounted(() => {
 
     <!-- Main Content -->
     <div class="flex-1 flex flex-col">
-      <!-- Navbar -->
       <header class="bg-white shadow-sm p-4 flex justify-between items-center sticky top-0 z-10">
         <h1 class="text-2xl font-semibold capitalize text-gray-800">
           {{ activeTab === 'category-users' ? selectedCategory : activeTab }}
         </h1>
       </header>
 
-     
       <main class="p-6 flex-1 flex flex-col gap-6 overflow-hidden">
-       
+        <!-- Dashboard -->
         <div v-if="activeTab === 'dashboard'" class="space-y-6">
-        
+          <!-- Stats -->
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <div
               v-for="(stat, index) in stats"
@@ -173,12 +222,12 @@ onMounted(() => {
           </div>
         </div>
 
-       
+        <!-- Users by category -->
         <div v-if="activeTab === 'category-users' && selectedCategory">
           <CategoryUserList v-if="selectedCategory" :category="selectedCategory" />
         </div>
 
-    
+        <!-- Users Table -->
         <div v-if="activeTab === 'users'" class="bg-white rounded-2xl shadow p-6">
           <UsersTable v-if="!usersLoading && !usersError" :users="users" />
           <div v-else-if="usersLoading" class="text-gray-500 text-center py-20 text-lg font-medium">
@@ -187,7 +236,7 @@ onMounted(() => {
           <div v-else class="text-red-500 text-center py-20 text-lg font-medium">{{ usersError }}</div>
         </div>
 
-       
+        <!-- Todos Table -->
         <div v-if="activeTab === 'todos'" class="bg-white rounded-2xl shadow p-6">
           <TodosTable v-if="!todosLoading && !todosError" :todos="todos" />
           <div v-else-if="todosLoading" class="text-gray-500 text-center py-20 text-lg font-medium">

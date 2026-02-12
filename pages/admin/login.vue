@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -12,27 +12,31 @@ const loading = ref(false)
 
 const handleAdminLogin = async () => {
   message.value = ''
-
-  if (!email.value || !password.value) {
-    message.value = 'Please fill all fields'
-    return
-  }
-
   loading.value = true
+
   try {
+   
     const res = await $fetch<{ success: boolean; message: string; admin?: any }>('/api/admin/login', {
       method: 'POST',
-      body: { email: email.value, password: password.value },
+      body: {
+        email: email.value,
+        password: password.value,
+      },
+      credentials: 'include', // Important for cookies
     })
 
     message.value = res.message
 
-    if (res.success) {
-      // Redirect to admin dashboard
-      router.push('/admin')
-    }
-  } catch (err) {
-    console.error(err)
+    if (!res.success) return
+
+    
+    await nextTick()
+
+    
+    window.location.href = '/admin'
+
+  } catch (err: any) {
+    console.error('LOGIN ERROR ', err)
     message.value = 'Login failed'
   } finally {
     loading.value = false
