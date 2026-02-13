@@ -61,7 +61,7 @@ export default eventHandler(async (event) => {
 
     return { success: true, message: 'User registered successfully' }
   } catch (err) {
-    console.error('REGISTER ERROR 👉', err)
+    console.error('REGISTER ERROR ', err)
     throw createError({
       statusCode: 500,
       statusMessage: 'Registration failed',

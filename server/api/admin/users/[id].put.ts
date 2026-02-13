@@ -30,7 +30,11 @@ export default eventHandler(async (event) => {
       .set({ name: body.name, email: body.email })
       .where(eq(users.id, id))
 
-    return { success: true, message: 'User updated successfully' }
+    return { 
+      success: true, 
+      message: 'User updated successfully',
+      redirectUrl: '/admin/index'
+    }
     
   } catch (err) {
     console.error('UPDATE USER ERROR ', err)

@@ -45,7 +45,7 @@ const updateUser = async () => {
 
     if (res.success) {
       alert('User updated')
-      router.push('/admin/users')
+      router.push('/admin')
     } else {
       alert(res.message || 'Failed to update user')
     }

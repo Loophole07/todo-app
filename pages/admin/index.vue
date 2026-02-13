@@ -51,7 +51,7 @@ const activeTab = ref('dashboard')
 const fetchStats = async () => {
   try {
     const usersRes = await $fetch<{ success: boolean; totalUsers: number }>('/api/users/get-count')
-    const todosRes = await $fetch<{ success: boolean; totalTodos: number }>('/api/todos/get-count')
+    const todosRes = await $fetch<{ success: boolean; totalTodos: number }>('/api/admin/todos/get-count')
 
     stats.value.find(s => s.title === 'Total Users')!.value = usersRes?.totalUsers ?? 0
     stats.value.find(s => s.title === 'Total Todos')!.value = todosRes?.totalTodos ?? 0
@@ -78,7 +78,7 @@ const fetchUsers = async () => {
 const fetchTodos = async () => {
   todosLoading.value = true
   try {
-    const res = await $fetch<{ success: boolean; todos: Todo[] }>('/api/todos')
+    const res = await $fetch<{ success: boolean; todos: Todo[] }>('/api/admin/todos')
     todos.value = res?.todos ?? []
   } catch (err) {
     console.error('FETCH TODOS ERROR 👉', err)

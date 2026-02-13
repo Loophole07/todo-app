@@ -50,7 +50,7 @@ const submitLogin = async () => {
     if (res.redirect) {
       router.push(res.redirect)
     } else {
-      router.push('/home') // fallback
+       router.push(res.redirect || '/home') // fallback
     }
   } catch (err) {
     console.error('LOGIN ERROR 👉', err)

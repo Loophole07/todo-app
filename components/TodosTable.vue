@@ -48,7 +48,7 @@ const fetchTodos = async () => {
     }
     if (category.value) params.category = category.value
 
-    const res = await $fetch<TodosResponse>('/api/todos', { params })
+    const res = await $fetch<TodosResponse>('/api/admin/todos', { params })
 
     todos.value = res.todos
     if (res.pagination) pagination.value = res.pagination

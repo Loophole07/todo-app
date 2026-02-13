@@ -1,8 +1,9 @@
 import db from '~/server/db'
 import { users } from '~/server/db/schema'
-import bcrypt from 'bcrypt'
 import { eventHandler } from 'h3'
 import { eq } from 'drizzle-orm'
+import cookie from 'cookie'
+import bcrypt from 'bcrypt'
 
 type LoginBody = {
   email: string
@@ -12,13 +13,13 @@ type LoginBody = {
 export default eventHandler(async (event) => {
   let body: LoginBody
 
-  // --- Safely parse JSON body ---
+  
   try {
     const raw = await new Promise<string>((resolve, reject) => {
       let data = ''
       event.node?.req.on('data', (chunk: any) => (data += chunk))
       event.node?.req.on('end', () => resolve(data))
-      event.node?.req.on('error', (err: any) => reject(err))
+      event.node?.req.on('error', reject)
     })
 
     body = JSON.parse(raw)
@@ -28,31 +29,45 @@ export default eventHandler(async (event) => {
 
   const { email, password } = body
 
-  if (!email || !password) {
+  if (!email || !password)
     return { success: false, message: 'Email and password are required' }
-  }
 
   try {
+   
     const [user] = await db
       .select()
       .from(users)
       .where(eq(users.email, email))
       .limit(1)
 
-    if (!user) return { success: false, message: 'Invalid credentials' }
+    if (!user)
+      return { success: false, message: 'Invalid credentials' }
 
+    
     const isValid = await bcrypt.compare(password, user.password_hash)
-    if (!isValid) return { success: false, message: 'Invalid credentials' }
 
-    // --- Return success with user info so frontend can redirect ---
+    if (!isValid)
+      return { success: false, message: 'Invalid credentials' }
+
+   
+    event.node?.res?.setHeader(
+      'Set-Cookie',
+      cookie.serialize('user_session', user.id.toString(), {
+        httpOnly: true,
+        path: '/',
+        maxAge: 60 * 60 * 24, // 1 day
+      })
+    )
+
     return {
       success: true,
       message: 'Login successful',
-      redirect: '/home', // <-- frontend can read this and navigate
+      redirect: '/home',
       user: { id: user.id, name: user.name, email: user.email },
     }
-  } catch (error) {
-    console.error('LOGIN ERROR 👉', error)
+
+  } catch (err) {
+    console.error('USER LOGIN ERROR ', err)
     return { success: false, message: 'Server error, try again later' }
   }
 })

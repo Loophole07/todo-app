@@ -1,7 +1,7 @@
 import db from '~/server/db'
 import { todos } from '~/server/db/schema'
-import { eventHandler, createError } from 'h3'
-import { eq } from 'drizzle-orm'
+import { eventHandler, createError, readBody } from 'h3'
+import { eq, and } from 'drizzle-orm'
 
 type RegisterBody = {
   title: string
@@ -10,67 +10,90 @@ type RegisterBody = {
   start_date: string
   due_date: string
   completed?: boolean
-  user_id: 2
-}
-
-
-const readJsonBody = async <T>(event: any): Promise<T> => {
-  return new Promise((resolve, reject) => {
-    let body = ''
-
-    event.req.on('data', (chunk: Buffer) => {
-      body += chunk.toString()
-    })
-
-    event.req.on('end', () => {
-      try {
-        resolve(JSON.parse(body))
-      } catch (err) {
-        reject(err)
-      }
-    })
-
-    event.req.on('error', reject)
-  })
 }
 
 export default eventHandler(async (event) => {
   try {
-    const body = await readJsonBody<RegisterBody>(event)
+   
+    const userId = Number(event.context.userId)
 
-    const { title, category, start_date, due_date, description, completed, user_id } = body
-
-    if (!category || !title || !start_date || !due_date) {
-      return { success: false, message: 'All fields are required' }
+    if (!userId || isNaN(userId)) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'You must login first'
+      })
     }
 
-    const existing = await db
-      .select({ id: todos.id })
-      .from(todos)
-      .where(eq(todos.title, title))
-      .limit(1)
+    
+    const body = await readBody<RegisterBody>(event)
 
-    if (existing.length > 0) {
-      return { success: false, message: 'Todo cannot be registered' }
+    if (!body) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Invalid request body'
+      })
+    }
+
+    const { title, category, start_date, due_date, description, completed } = body
+
+   
+    if (!title?.trim() || !category?.trim() || !start_date || !due_date) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'All fields are required'
+      })
     }
 
    
+    const startDateObj = new Date(start_date)
+    const dueDateObj = new Date(due_date)
+
+    if (isNaN(startDateObj.getTime()) || isNaN(dueDateObj.getTime())) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Invalid date format'
+      })
+    }
+
+   
+    const existing = await db
+      .select({ id: todos.id })
+      .from(todos)
+      .where(and(eq(todos.title, title.trim()), eq(todos.user_id, userId)))
+      .limit(1)
+
+    if (existing.length > 0) {
+      return {
+        success: false,
+        message: 'You already created this todo'
+      }
+    }
+
+    
     await db.insert(todos).values({
-      title,
-      description: description || null,
-      category,
-      start_date: new Date(start_date),
-      due_date: new Date(due_date),
+      title: title.trim(),
+      description: description?.trim() || null,
+      category: category.trim(),
+      start_date: startDateObj,
+      due_date: dueDateObj,
       completed: completed ?? false,
-      user_id
+      user_id: userId
     })
 
-    return { success: true, message: 'Todo registered successfully' }
-  } catch (err) {
-    console.error('REGISTER ERROR 👉', err)
+    return {
+      success: true,
+      message: 'Todo created successfully'
+    }
+
+  } catch (err: any) {
+    console.error('CREATE TODO ERROR 👉', err)
+
+    // keep real error status
+    if (err?.statusCode) throw err
+
     throw createError({
       statusCode: 500,
-      statusMessage: 'Registration failed',
+      statusMessage: 'Failed to create todo'
     })
   }
 })

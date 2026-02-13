@@ -8,10 +8,10 @@ export default eventHandler((event) => {
 
   event.node.res.setHeader(
     'Set-Cookie',
-    cookie.serialize('admin_session', '', {
+    cookie.serialize('user_session', '', {
       httpOnly: true,
       path: '/',
-      maxAge: -1, 
+      maxAge: -1,
     })
   )
 

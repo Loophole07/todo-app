@@ -1,5 +1,30 @@
+<script setup lang="ts">
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+const handleLogout = async () => {
+  try {
+    const res = await $fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include'
+    })
+    
+    if (res.success) {
+      alert('Logged out successfully!')
+      router.push('/')
+    } else {
+      alert('Logout failed')
+    }
+  } catch (error) {
+    console.error('Logout error:', error)
+    alert('Logout failed')
+  }
+}
+</script>
+
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-10 px-4 relative">
+  <div class="h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-10 px-4 relative flex items-center">
     <!-- Animated background elements - contained within viewport -->
     <div class="absolute inset-0 pointer-events-none">
       <div class="absolute top-20 right-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob"></div>
@@ -7,16 +32,16 @@
       <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob animation-delay-4000"></div>
     </div>
 
-    <div class="max-w-4xl mx-auto relative z-10">
+    <div class="max-w-4xl mx-auto relative z-10 w-full">
       <div>
         <!-- Header -->
-        <div class="text-center mb-10 animate-fadeIn">
+        <div class="text-center mb-6 animate-fadeIn">
           <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl shadow-lg mb-4 transform hover:rotate-6 transition-transform duration-300">
             <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
             </svg>
           </div>
-          <h1 class="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-purple-400 bg-clip-text text-transparent mb-3">
+          <h1 class="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
             Task Dashboard
           </h1>
           <p class="text-gray-300 mt-2 text-sm md:text-base px-4">
@@ -26,7 +51,7 @@
 
         <!-- Stats Card -->
         <div
-          class="mb-6 rounded-2xl shadow-2xl p-5 md:p-6
+          class="mb-4 rounded-2xl shadow-2xl p-4 md:p-5
                  bg-white/10 backdrop-blur-xl border border-white/20
                  hover:bg-white/15 transition-all duration-300 animate-fadeIn delay-200"
         >
@@ -44,30 +69,10 @@
        
 
         <!-- Action Cards Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 animate-fadeIn delay-400">
-          <!-- Home Link Button -->
-          <NuxtLink
-            to="/"
-            class="group relative rounded-xl shadow-lg
-                   bg-white/10 backdrop-blur-xl border border-white/20
-                   hover:bg-white/15 hover:shadow-2xl hover:scale-[1.02]
-                   transition-all duration-300 p-4 md:p-5 flex items-center gap-3 md:gap-4"
-          >
-            <div class="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-              <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-              </svg>
-            </div>
-            <div class="text-left flex-1 min-w-0">
-              <h3 class="text-white font-semibold text-base md:text-lg truncate">Back to Home</h3>
-              <p class="text-gray-400 text-xs md:text-sm truncate">Return to main menu</p>
-            </div>
-            <svg class="w-5 h-5 text-gray-400 flex-shrink-0 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </NuxtLink>
-
-          <!-- Manage Todos Button -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 animate-fadeIn delay-400">
+        
+          
+  <!-- Create Tasks Button -->
           <NuxtLink
             to="/todos/create"
             class="group relative rounded-xl shadow-lg
@@ -89,6 +94,52 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
             </svg>
           </NuxtLink>
+
+          <!-- All Todo List Button -->
+          <NuxtLink
+            to="/todos"
+            class="group relative rounded-xl shadow-lg
+                   bg-gradient-to-r from-emerald-600 to-teal-600
+                   hover:from-emerald-700 hover:to-teal-700
+                   hover:shadow-2xl hover:scale-[1.02]
+                   transition-all duration-300 p-4 md:p-5 flex items-center gap-3 md:gap-4"
+          >
+            <div class="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+              <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+              </svg>
+            </div>
+            <div class="text-left flex-1 min-w-0">
+              <h3 class="text-white font-semibold text-base md:text-lg truncate">All Todo List</h3>
+              <p class="text-emerald-100 text-xs md:text-sm truncate">View all your tasks</p>
+            </div>
+            <svg class="w-5 h-5 text-white flex-shrink-0 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+            </svg>
+          </NuxtLink>
+
+          <!-- Logout Button -->
+          <button
+            @click="handleLogout"
+            class="group relative rounded-xl shadow-lg
+                   bg-gradient-to-r from-red-600 to-rose-600
+                   hover:from-red-700 hover:to-rose-700
+                   hover:shadow-2xl hover:scale-[1.02]
+                   transition-all duration-300 p-4 md:p-5 flex items-center gap-3 md:gap-4"
+          >
+            <div class="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+              <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+              </svg>
+            </div>
+            <div class="text-left flex-1 min-w-0">
+              <h3 class="text-white font-semibold text-base md:text-lg truncate">Logout</h3>
+              <p class="text-red-100 text-xs md:text-sm truncate">Sign out of your account</p>
+            </div>
+            <svg class="w-5 h-5 text-white flex-shrink-0 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+            </svg>
+          </button>
         </div>
 
         <!-- Helper Text -->
@@ -97,7 +148,7 @@
             <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
-            <span>Click on "Create Tasks" to view, edit, or complete your tasks</span>
+            <span>Click on "All Todo List" to view all tasks, or "Create Tasks" to add new ones</span>
           </p>
         </div>
 
