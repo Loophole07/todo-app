@@ -13,7 +13,6 @@ type LoginBody = {
 export default eventHandler(async (event) => {
   let body: LoginBody
 
-  
   try {
     const raw = await new Promise<string>((resolve, reject) => {
       let data = ''
@@ -33,7 +32,6 @@ export default eventHandler(async (event) => {
     return { success: false, message: 'Email and password are required' }
 
   try {
-   
     const [user] = await db
       .select()
       .from(users)
@@ -43,21 +41,23 @@ export default eventHandler(async (event) => {
     if (!user)
       return { success: false, message: 'Invalid credentials' }
 
-    
     const isValid = await bcrypt.compare(password, user.password_hash)
 
     if (!isValid)
       return { success: false, message: 'Invalid credentials' }
 
-   
-    event.node?.res?.setHeader(
-      'Set-Cookie',
-      cookie.serialize('user_session', user.id.toString(), {
-        httpOnly: true,
-        path: '/',
-        maxAge: 60 * 60 * 24, // 1 day
-      })
-    )
+    // Set cookie
+    const cookieValue = cookie.serialize('user_session', user.id.toString(), {
+      httpOnly: true,
+      secure: false, 
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24,
+    })
+
+    console.log('Setting cookie:', cookieValue)
+
+    event.node?.res?.setHeader('Set-Cookie', cookieValue)
 
     return {
       success: true,

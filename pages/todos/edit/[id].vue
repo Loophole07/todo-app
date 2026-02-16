@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 const title = ref('')
 const description = ref('')
@@ -9,45 +9,81 @@ const start_date = ref('')
 const due_date = ref('')
 const completed = ref(false)
 const loading = ref(false)
+const loadingTodo = ref(true)
 const userId = ref<number | null>(null)
 
 const router = useRouter()
+const route = useRoute()
 
-// Get user session on mount
+const todoId = Number(route.params.id)
+
+// Format date
+const formatDate = (dateString: string | null | undefined): string => {
+  if (!dateString) return ''
+  try {
+    const date = new Date(dateString)
+    const isoString = date.toISOString()
+    const parts = isoString.split('T')
+    return parts[0] || ''
+  } catch {
+    return ''
+  }
+}
+
+// Fetch user session 
 onMounted(async () => {
   try {
-    const res = await $fetch<{ success: boolean; user?: any }>('/api/auth/me', {
+    // Get =
+    const userRes = await $fetch<{ success: boolean; user?: any }>('/api/auth/me', {
       credentials: 'include'
     })
 
-    if (!res.success || !res.user) {
+    if (!userRes.success || !userRes.user) {
       alert('You must be logged in!')
       router.push('/login')
       return
     }
 
-    userId.value = res.user.id
+    userId.value = userRes.user.id
+
+    // Fetch
+    const todoRes = await $fetch<{ success: boolean; todo?: any }>(`/api/todos/${todoId}`, {
+      credentials: 'include'
+    })
+
+    if (!todoRes.success || !todoRes.todo) {
+      alert('Todo not found!')
+      router.push('/todos')
+      return
+    }
+
+    
+    const todo = todoRes.todo
+    title.value = todo.title || ''
+    description.value = todo.description || ''
+    category.value = todo.category || ''
+    completed.value = todo.completed || false
+    
+    // Format dates 
+    start_date.value = formatDate(todo.start_date)
+    due_date.value = formatDate(todo.due_date)
+
   } catch (err) {
-    console.error('Failed to fetch user', err)
-    alert('You must be logged in!')
-    router.push('/login')
+    console.error('Failed to load todo', err)
+    alert('Failed to load todo')
+    router.push('/todos')
+  } finally {
+    loadingTodo.value = false
   }
 })
 
-const createTodo = async () => {
-  if (loading.value) return
-  
-  // Check if user is loaded
-  if (!userId.value) {
-    alert('You must be logged in!')
-    router.push('/login')
-    return
-  }
+const updateTodo = async () => {
+  if (loading.value || !userId.value) return
 
   loading.value = true
 
   try {
-    const res = await $fetch<{ success: boolean; message: string }>('/api/todos/create', {
+    const res = await $fetch<{ success: boolean; message: string }>(`/api/todos/${todoId}`, {
       method: 'POST',
       body: {
         title: title.value,
@@ -66,11 +102,11 @@ const createTodo = async () => {
       return
     }
 
-    alert('Todo created successfully!')
-    router.push('/todos') 
+    alert('Todo updated successfully!')
+    router.push('/todos')
   } catch (err) {
-    console.error('CREATE TODO ERROR ', err)
-    alert('Failed to create todo')
+    console.error('UPDATE TODO ERROR ', err)
+    alert('Failed to update todo')
   } finally {
     loading.value = false
   }
@@ -79,8 +115,15 @@ const createTodo = async () => {
 
 <template>
   <div class="h-screen overflow-hidden flex items-center justify-center bg-gradient-to-br from-blue-200 via-indigo-200 to-purple-200 px-4">
-    <div class="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full max-h-[calc(100vh-2rem)] overflow-y-auto">
-      <h2 class="text-2xl sm:text-3xl font-extrabold mb-6 text-center text-gray-800 tracking-wide">Create Todo</h2>
+    <!-- Loading State -->
+    <div v-if="loadingTodo" class="text-center">
+      <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+      <p class="mt-4 text-gray-700">Loading todo...</p>
+    </div>
+
+    <!-- Edit Form -->
+    <div v-else class="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full max-h-[calc(100vh-2rem)] overflow-y-auto">
+      <h2 class="text-2xl sm:text-3xl font-extrabold mb-6 text-center text-gray-800 tracking-wide">Edit Todo</h2>
 
       <div class="space-y-4">
         <input 
@@ -132,19 +175,31 @@ const createTodo = async () => {
           />
         </div>
 
+        <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+          <input 
+            type="checkbox" 
+            v-model="completed" 
+            id="completed"
+            class="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+          />
+          <label for="completed" class="font-medium text-gray-700 cursor-pointer">
+            Mark as completed
+          </label>
+        </div>
+
         <button 
-          @click="createTodo"
+          @click="updateTodo"
           :disabled="loading || !userId"
           class="w-full py-2.5 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-indigo-600 hover:to-blue-500 shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {{ loading ? 'Saving...' : 'Create Todo' }}
+          {{ loading ? 'Updating...' : 'Update Todo' }}
         </button>
 
         <NuxtLink 
-          to="/home" 
+          to="/todos" 
           class="block w-full py-2.5 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-100 text-center font-medium transition"
         >
-          ← Back
+          ← Cancel
         </NuxtLink>
       </div>
     </div>

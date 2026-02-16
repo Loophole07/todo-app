@@ -138,17 +138,11 @@ onMounted(() => {
   <div class="flex min-h-screen bg-gray-50">
     <!-- Sidebar -->
     <aside class="w-64 bg-white shadow-lg flex flex-col p-6">
-      <div class="flex items-center justify-between mb-4">
+      <div class="mb-8">
         <h2 class="text-3xl font-bold text-blue-600">Admin Panel</h2>
-        <button
-          @click="logout"
-          class="text-sm bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
-        >
-          Logout
-        </button>
       </div>
 
-      <nav class="flex flex-col gap-3 mt-4">
+      <nav class="flex flex-col gap-3 flex-1">
         <button
           v-for="link in links"
           :key="link.id"
@@ -161,6 +155,19 @@ onMounted(() => {
           {{ link.title }}
         </button>
       </nav>
+
+      <!-- Logout Button at Bottom -->
+      <div class="mt-auto pt-6 border-t border-gray-200">
+        <button
+          @click="logout"
+          class="w-full bg-red-500 text-white px-4 py-3 rounded-lg hover:bg-red-600 transition font-medium flex items-center justify-center gap-2"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Logout
+        </button>
+      </div>
     </aside>
 
     <!-- Main Content -->

@@ -1,11 +1,40 @@
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
-const handleLogout = async () => {
+const user = ref<{ id: number; name: string; email: string } | null>(null)
+const loading = ref(true)
+
+onMounted(async () => {
   try {
-    const res = await $fetch('/api/auth/logout', {
+    const res = await $fetch<{ success: boolean; user?: any; message?: string }>('/api/auth/me', {
+      credentials: 'include'
+    })
+
+    if (!res.success || !res.user) {
+      router.push('/login')
+      return
+    }
+
+    user.value = res.user
+  } catch (err) {
+    console.error('Failed to fetch user', err)
+    router.push('/login')
+  } finally {
+    loading.value = false
+  }
+})
+
+const handleLogout = async () => {
+  // Ask for confirmation first
+  if (!confirm('Are you sure you want to logout?')) {
+    return
+  }
+
+  try {
+    const res = await $fetch<{ success: boolean; message: string }>('/api/auth/logout', {
       method: 'POST',
       credentials: 'include'
     })
@@ -14,27 +43,35 @@ const handleLogout = async () => {
       alert('Logged out successfully!')
       router.push('/')
     } else {
-      alert('Logout failed')
+      alert('Logout failed. Please try again.')
     }
   } catch (error) {
     console.error('Logout error:', error)
-    alert('Logout failed')
+    alert('Logout failed. Please try again.')
   }
 }
 </script>
 
 <template>
   <div class="h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-10 px-4 relative flex items-center">
+    <!-- Loading State -->
+    <div v-if="loading" class="absolute inset-0 flex items-center justify-center z-50">
+      <div class="text-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-400 mx-auto"></div>
+        <p class="mt-4 text-gray-300">Loading...</p>
+      </div>
+    </div>
+
     <!-- Animated background elements - contained within viewport -->
-    <div class="absolute inset-0 pointer-events-none">
+    <div v-else class="absolute inset-0 pointer-events-none">
       <div class="absolute top-20 right-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob"></div>
       <div class="absolute bottom-20 left-20 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob animation-delay-2000"></div>
       <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob animation-delay-4000"></div>
     </div>
 
-    <div class="max-w-4xl mx-auto relative z-10 w-full">
+    <div v-if="!loading && user" class="max-w-4xl mx-auto relative z-10 w-full">
       <div>
-        <!-- Header -->
+        <!-- Header with User Info -->
         <div class="text-center mb-6 animate-fadeIn">
           <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl shadow-lg mb-4 transform hover:rotate-6 transition-transform duration-300">
             <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -42,11 +79,8 @@ const handleLogout = async () => {
             </svg>
           </div>
           <h1 class="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
-            Task Dashboard
+            Welcome Back, {{ user.name }}!
           </h1>
-          <p class="text-gray-300 mt-2 text-sm md:text-base px-4">
-            Organize, track, and accomplish your goals
-          </p>
         </div>
 
         <!-- Stats Card -->
@@ -66,13 +100,10 @@ const handleLogout = async () => {
           <TodoStats />
         </div>
 
-       
-
         <!-- Action Cards Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 animate-fadeIn delay-400">
         
-          
-  <!-- Create Tasks Button -->
+          <!-- Create Tasks Button -->
           <NuxtLink
             to="/todos/create"
             class="group relative rounded-xl shadow-lg
@@ -125,7 +156,7 @@ const handleLogout = async () => {
                    bg-gradient-to-r from-red-600 to-rose-600
                    hover:from-red-700 hover:to-rose-700
                    hover:shadow-2xl hover:scale-[1.02]
-                   transition-all duration-300 p-4 md:p-5 flex items-center gap-3 md:gap-4"
+                   transition-all duration-300 p-4 md:p-5 flex items-center gap-3 md:gap-4 md:col-span-2"
           >
             <div class="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
               <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

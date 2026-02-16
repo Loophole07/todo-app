@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
-// --- Form state ---
+
 const email = ref('')
 const password = ref('')
 const message = ref('')
@@ -22,7 +22,7 @@ const handleAdminLogin = async () => {
         email: email.value,
         password: password.value,
       },
-      credentials: 'include', // Important for cookies
+      credentials: 'include', 
     })
 
     message.value = res.message

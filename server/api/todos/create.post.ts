@@ -1,31 +1,38 @@
 import db from '~/server/db'
 import { todos } from '~/server/db/schema'
-import { eventHandler, createError, readBody } from 'h3'
+import { eventHandler, createError } from 'h3'
 import { eq, and } from 'drizzle-orm'
 
-type RegisterBody = {
+type TodoBody = {
   title: string
   description?: string
   category: string
   start_date: string
   due_date: string
   completed?: boolean
+  user_id: number
 }
 
 export default eventHandler(async (event) => {
   try {
-   
-    const userId = Number(event.context.userId)
+    let body: TodoBody
 
-    if (!userId || isNaN(userId)) {
+    // Manual parsing
+    try {
+      const raw = await new Promise<string>((resolve, reject) => {
+        let data = ''
+        event.node?.req.on('data', (chunk: any) => (data += chunk))
+        event.node?.req.on('end', () => resolve(data))
+        event.node?.req.on('error', reject)
+      })
+
+      body = JSON.parse(raw)
+    } catch (err) {
       throw createError({
-        statusCode: 401,
-        statusMessage: 'You must login first'
+        statusCode: 400,
+        statusMessage: 'Invalid request body'
       })
     }
-
-    
-    const body = await readBody<RegisterBody>(event)
 
     if (!body) {
       throw createError({
@@ -34,9 +41,19 @@ export default eventHandler(async (event) => {
       })
     }
 
-    const { title, category, start_date, due_date, description, completed } = body
+    const { title, category, start_date, due_date, description, completed, user_id } = body
 
-   
+    
+    if (!user_id || isNaN(Number(user_id))) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'You must login first'
+      })
+    }
+
+    const userId = Number(user_id)
+
+  
     if (!title?.trim() || !category?.trim() || !start_date || !due_date) {
       throw createError({
         statusCode: 400,
@@ -44,7 +61,7 @@ export default eventHandler(async (event) => {
       })
     }
 
-   
+    
     const startDateObj = new Date(start_date)
     const dueDateObj = new Date(due_date)
 
@@ -55,7 +72,7 @@ export default eventHandler(async (event) => {
       })
     }
 
-   
+
     const existing = await db
       .select({ id: todos.id })
       .from(todos)
@@ -69,7 +86,7 @@ export default eventHandler(async (event) => {
       }
     }
 
-    
+  
     await db.insert(todos).values({
       title: title.trim(),
       description: description?.trim() || null,
@@ -88,7 +105,7 @@ export default eventHandler(async (event) => {
   } catch (err: any) {
     console.error('CREATE TODO ERROR 👉', err)
 
-    // keep real error status
+    
     if (err?.statusCode) throw err
 
     throw createError({

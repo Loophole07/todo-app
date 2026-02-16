@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 
 type LoginResponse = {
@@ -39,6 +39,7 @@ const submitLogin = async () => {
         email: email.value.trim().toLowerCase(),
         password: password.value,
       },
+      credentials: 'include', 
     })
 
     if (!res.success) {
@@ -46,12 +47,10 @@ const submitLogin = async () => {
       return
     }
 
-    // --- Redirect to the page provided by backend ---
-    if (res.redirect) {
-      router.push(res.redirect)
-    } else {
-       router.push(res.redirect || '/home') // fallback
-    }
+    
+    await nextTick()
+    window.location.href = res.redirect || '/home'
+    
   } catch (err) {
     console.error('LOGIN ERROR 👉', err)
     error.value = 'Login failed'
