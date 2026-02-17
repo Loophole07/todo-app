@@ -4,40 +4,59 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
-
 const email = ref('')
 const password = ref('')
-const message = ref('')
 const loading = ref(false)
 
+const errors = ref<Record<string, string>>({})
+
+// Toast
+type Toast = { id: number; message: string; type: 'success' | 'error' }
+const toasts = ref<Toast[]>([])
+let toastId = 0
+
+const showToast = (message: string, type: 'success' | 'error') => {
+  const id = ++toastId
+  toasts.value.push({ id, message, type })
+  setTimeout(() => {
+    toasts.value = toasts.value.filter(t => t.id !== id)
+  }, 3500)
+}
+
 const handleAdminLogin = async () => {
-  message.value = ''
+  if (loading.value) return
+
+  errors.value = {}
   loading.value = true
 
   try {
-   
-    const res = await $fetch<{ success: boolean; message: string; admin?: any }>('/api/admin/login', {
-      method: 'POST',
-      body: {
-        email: email.value,
-        password: password.value,
-      },
-      credentials: 'include', 
-    })
+    const res = await $fetch<{ success: boolean; message: string; field?: string; admin?: any }>(
+      '/api/admin/login',
+      {
+        method: 'POST',
+        body: {
+          email: email.value,
+          password: password.value,
+        },
+        credentials: 'include',
+      }
+    )
 
-    message.value = res.message
+    if (!res.success) {
+      if (res.field) errors.value[res.field] = res.message
+      showToast(res.message, 'error')
+      return
+    }
 
-    if (!res.success) return
-
-    
+    showToast(res.message, 'success')
     await nextTick()
-
-    
-    window.location.href = '/admin'
+    setTimeout(() => {
+      window.location.href = '/admin'
+    }, 1000)
 
   } catch (err: any) {
-    console.error('LOGIN ERROR ', err)
-    message.value = 'Login failed'
+    const msg = err?.data?.statusMessage || 'Login failed'
+    showToast(msg, 'error')
   } finally {
     loading.value = false
   }
@@ -46,25 +65,57 @@ const handleAdminLogin = async () => {
 
 <template>
   <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-200 via-gray-200 to-blue-200">
+
+    <!-- Toast container -->
+    <div class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+      <transition-group name="toast">
+        <div
+          v-for="toast in toasts"
+          :key="toast.id"
+          class="px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white pointer-events-auto flex items-center gap-2 min-w-[220px]"
+          :class="toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'"
+        >
+          <span>{{ toast.type === 'success' ? '✅' : '❌' }}</span>
+          <span>{{ toast.message }}</span>
+        </div>
+      </transition-group>
+    </div>
+
     <div class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl p-10 max-w-md w-full text-center">
       <h1 class="text-3xl font-bold text-gray-800 mb-4">Admin Login</h1>
       <p class="text-gray-600 mb-6">Access the admin dashboard by logging in below.</p>
 
-      <p v-if="message" class="mb-4 text-sm text-red-500 text-center">{{ message }}</p>
-
       <div class="space-y-4">
-        <input
-          v-model="email"
-          type="email"
-          placeholder="Email"
-          class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-        />
-        <input
-          v-model="password"
-          type="password"
-          placeholder="Password"
-          class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-        />
+
+        <!-- Email -->
+        <div class="text-left">
+          <input
+            v-model="email"
+            type="email"
+            placeholder="Email"
+            @input="delete errors.email"
+            class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 transition"
+            :class="errors.email
+              ? 'border-red-400 focus:ring-red-400 bg-red-50'
+              : 'border-gray-300 focus:ring-blue-500'"
+          />
+          <p v-if="errors.email" class="text-red-500 text-xs mt-1 ml-1">{{ errors.email }}</p>
+        </div>
+
+        <!-- Password -->
+        <div class="text-left">
+          <input
+            v-model="password"
+            type="password"
+            placeholder="Password"
+            @input="delete errors.password"
+            class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 transition"
+            :class="errors.password
+              ? 'border-red-400 focus:ring-red-400 bg-red-50'
+              : 'border-gray-300 focus:ring-blue-500'"
+          />
+          <p v-if="errors.password" class="text-red-500 text-xs mt-1 ml-1">{{ errors.password }}</p>
+        </div>
 
         <button
           @click="handleAdminLogin"
@@ -80,7 +131,23 @@ const handleAdminLogin = async () => {
         >
           ← Back
         </NuxtLink>
+
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+.toast-enter-from {
+  opacity: 0;
+  transform: translateX(40px);
+}
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(40px);
+}
+</style>

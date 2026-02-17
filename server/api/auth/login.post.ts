@@ -20,42 +20,54 @@ export default eventHandler(async (event) => {
       event.node?.req.on('end', () => resolve(data))
       event.node?.req.on('error', reject)
     })
-
     body = JSON.parse(raw)
-  } catch (err) {
+  } catch {
     return { success: false, message: 'Invalid request body' }
   }
 
   const { email, password } = body
 
-  if (!email || !password)
-    return { success: false, message: 'Email and password are required' }
+  // --- Email ---
+  if (!email?.trim()) {
+    return { success: false, field: 'email', message: 'Email is required' }
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email.trim())) {
+    return { success: false, field: 'email', message: 'Please enter a valid email address' }
+  }
+
+  // --- Password ---
+  if (!password) {
+    return { success: false, field: 'password', message: 'Password is required' }
+  }
+  if (password.length < 6) {
+    return { success: false, field: 'password', message: 'Password must be at least 6 characters' }
+  }
 
   try {
     const [user] = await db
       .select()
       .from(users)
-      .where(eq(users.email, email))
+      .where(eq(users.email, email.trim().toLowerCase()))
       .limit(1)
 
-    if (!user)
-      return { success: false, message: 'Invalid credentials' }
+    if (!user) {
+      return { success: false, field: 'email', message: 'No account found with this email' }
+    }
 
     const isValid = await bcrypt.compare(password, user.password_hash)
 
-    if (!isValid)
-      return { success: false, message: 'Invalid credentials' }
+    if (!isValid) {
+      return { success: false, field: 'password', message: 'Incorrect password' }
+    }
 
-    // Set cookie
     const cookieValue = cookie.serialize('user_session', user.id.toString(), {
       httpOnly: true,
-      secure: false, 
+      secure: false,
       sameSite: 'lax',
       path: '/',
       maxAge: 60 * 60 * 24,
     })
-
-    console.log('Setting cookie:', cookieValue)
 
     event.node?.res?.setHeader('Set-Cookie', cookieValue)
 

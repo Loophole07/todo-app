@@ -2,7 +2,6 @@ import db from '~/server/db'
 import { todos } from '~/server/db/schema'
 import { eventHandler, createError } from 'h3'
 import { eq, and } from 'drizzle-orm'
-import cookie from 'cookie'
 
 type UpdateBody = {
   title: string
@@ -14,15 +13,16 @@ type UpdateBody = {
   user_id: number
 }
 
+const VALID_CATEGORIES = ['study', 'bug', 'api', 'code', 'exam', 'health', 'work', 'personal', 'shopping']
+
 export default eventHandler(async (event) => {
   try {
     const id = Number(event.context.params?.id)
 
-    if (!id) {
+    if (!id || isNaN(id)) {
       throw createError({ statusCode: 400, statusMessage: 'Invalid todo ID' })
     }
 
-    // Manual 
     let body: UpdateBody
     try {
       const raw = await new Promise<string>((resolve, reject) => {
@@ -31,27 +31,66 @@ export default eventHandler(async (event) => {
         event.node?.req.on('end', () => resolve(data))
         event.node?.req.on('error', reject)
       })
-
       body = JSON.parse(raw)
-    } catch (err) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Invalid request body'
-      })
+    } catch {
+      throw createError({ statusCode: 400, statusMessage: 'Invalid request body' })
     }
 
-    // Get user_id 
+    // --- Auth check ---
     const userId = Number(body.user_id)
-
     if (!userId || isNaN(userId)) {
-      throw createError({ statusCode: 401, statusMessage: 'You must login first' })
+      throw createError({ statusCode: 401, statusMessage: 'You must be logged in first' })
     }
 
-    if (!body?.title) {
-      throw createError({ statusCode: 400, statusMessage: 'Title required' })
+    // --- Title ---
+    if (!body.title?.trim()) {
+      return { success: false, field: 'title', message: 'Title is required' }
+    }
+    if (body.title.trim().length < 3) {
+      return { success: false, field: 'title', message: 'Title must be at least 3 characters' }
+    }
+    if (body.title.trim().length > 100) {
+      return { success: false, field: 'title', message: 'Title must be less than 100 characters' }
     }
 
-    // Check 
+    // --- Description ---
+    if (!body.description?.trim()) {
+      return { success: false, field: 'description', message: 'Description is required' }
+    }
+    if (body.description.trim().length > 500) {
+      return { success: false, field: 'description', message: 'Description must be less than 500 characters' }
+    }
+
+    // --- Category ---
+    if (!body.category?.trim()) {
+      return { success: false, field: 'category', message: 'Please select a category' }
+    }
+    if (!VALID_CATEGORIES.includes(body.category.trim())) {
+      return { success: false, field: 'category', message: 'Invalid category selected' }
+    }
+
+    // --- Dates ---
+    if (!body.start_date) {
+      return { success: false, field: 'start_date', message: 'Start date is required' }
+    }
+    if (!body.due_date) {
+      return { success: false, field: 'due_date', message: 'End date is required' }
+    }
+
+    const startDateObj = new Date(body.start_date)
+    const dueDateObj = new Date(body.due_date)
+
+    if (isNaN(startDateObj.getTime())) {
+      return { success: false, field: 'start_date', message: 'Start date is invalid' }
+    }
+    if (isNaN(dueDateObj.getTime())) {
+      return { success: false, field: 'due_date', message: 'End date is invalid' }
+    }
+    if (dueDateObj < startDateObj) {
+      return { success: false, field: 'due_date', message: 'End date cannot be before start date' }
+    }
+
+    // --- Ownership check ---
     const [existingTodo] = await db
       .select({ id: todos.id })
       .from(todos)
@@ -59,18 +98,18 @@ export default eventHandler(async (event) => {
       .limit(1)
 
     if (!existingTodo) {
-      throw createError({ statusCode: 403, statusMessage: 'Not your todo or todo not found' })
+      throw createError({ statusCode: 403, statusMessage: 'Todo not found or access denied' })
     }
 
-    // Update todo
+    // --- Update ---
     await db.update(todos)
       .set({
         title: body.title.trim(),
         description: body.description?.trim() || null,
-        category: body.category?.trim() || 'personal',
-        start_date: body.start_date ? new Date(body.start_date) : undefined,
-        due_date: body.due_date ? new Date(body.due_date) : undefined,
-        completed: body.completed ?? false
+        category: body.category.trim(),
+        start_date: startDateObj,
+        due_date: dueDateObj,
+        completed: body.completed ?? false,
       })
       .where(eq(todos.id, id))
 
@@ -78,12 +117,7 @@ export default eventHandler(async (event) => {
 
   } catch (err: any) {
     console.error('UPDATE TODO ERROR 👉', err)
-
     if (err?.statusCode) throw err
-
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'Failed to update todo',
-    })
+    throw createError({ statusCode: 500, statusMessage: 'Failed to update todo' })
   }
 })

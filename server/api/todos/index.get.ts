@@ -5,7 +5,6 @@ import { eq, and } from 'drizzle-orm'
 
 export default eventHandler(async (event) => {
   try {
-    
     const userId = event.context.userId as number
 
     if (!userId) {
@@ -17,13 +16,44 @@ export default eventHandler(async (event) => {
     const url = new URL(reqUrl, baseUrl)
 
     const category = url.searchParams.get('category')?.trim()
+    const status = url.searchParams.get('status')?.trim() 
     const page = Number(url.searchParams.get('page') ?? '1')
     const perPage = Number(url.searchParams.get('perPage') ?? '10')
 
-   
-    const allTodos = category
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+  
+    let allTodos = category
       ? await db.select().from(todos).where(and(eq(todos.user_id, userId), eq(todos.category, category)))
       : await db.select().from(todos).where(eq(todos.user_id, userId))
+
+    // Helper: safely parse a due_date that may be Date | null
+    const parseDue = (raw: Date | string | null): Date | null => {
+      if (raw === null || raw === undefined) return null
+      const d = new Date(raw)
+      d.setHours(0, 0, 0, 0)
+      return isNaN(d.getTime()) ? null : d
+    }
+
+    // Apply status filter in JS after fetching
+    if (status === 'completed') {
+      allTodos = allTodos.filter((t) => t.completed === true)
+    } else if (status === 'overdue') {
+      // Not completed AND due_date exists AND is before today
+      allTodos = allTodos.filter((t) => {
+        if (t.completed) return false
+        const due = parseDue(t.due_date)
+        return due !== null && due < today
+      })
+    } else if (status === 'in_progress') {
+      
+      allTodos = allTodos.filter((t) => {
+        if (t.completed) return false
+        const due = parseDue(t.due_date)
+        return due === null || due >= today
+      })
+    }
 
     const total = allTodos.length
     const paginatedTodos = allTodos.slice((page - 1) * perPage, page * perPage)

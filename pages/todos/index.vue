@@ -1,40 +1,61 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 type Todo = {
   id: number
   title: string
   description?: string
   category: string
-  start_date: string
-  due_date: string
+  start_date: string | null
+  due_date: string | null
   completed: boolean
   user_id?: number
 }
+
+type StatusFilter = 'all' | 'in_progress' | 'overdue' | 'completed'
 
 const todos = ref<Todo[]>([])
 const loading = ref(false)
 const message = ref('')
 const page = ref(1)
 const totalPages = ref(1)
+const totalCount = ref(0)
 const userId = ref<number | null>(null)
+const activeStatus = ref<StatusFilter>('all')
 
 const router = useRouter()
+const route = useRoute()
+
+const VALID_STATUSES: StatusFilter[] = ['all', 'in_progress', 'overdue', 'completed']
+const queryStatus = route.query.status as string
+activeStatus.value = VALID_STATUSES.includes(queryStatus as StatusFilter)
+  ? (queryStatus as StatusFilter)
+  : 'all'
+
+const statusTabs: { key: StatusFilter; label: string }[] = [
+  { key: 'all',         label: 'All' },
+  { key: 'in_progress', label: 'In Progress' },
+  { key: 'overdue',     label: 'Overdue' },
+  { key: 'completed',   label: 'Completed' },
+]
 
 const fetchTodos = async () => {
   loading.value = true
   message.value = ''
 
   try {
+    let queryString = `/api/todos?page=${page.value}&perPage=6`
+    if (activeStatus.value !== 'all') {
+      queryString += `&status=${activeStatus.value}`
+    }
+
     const res = await $fetch<{
       success: boolean
       todos: Todo[]
-      pagination: { totalPages: number }
+      pagination: { totalPages: number; total: number }
       message?: string
-    }>('/api/todos?page=' + page.value + '&perPage=6', {
-      credentials: 'include'
-    })
+    }>(queryString, { credentials: 'include' })
 
     if (!res.success) {
       message.value = res.message || 'Failed to fetch todos'
@@ -43,7 +64,7 @@ const fetchTodos = async () => {
 
     todos.value = res.todos
     totalPages.value = res.pagination.totalPages
-
+    totalCount.value = res.pagination.total
   } catch (err) {
     console.error(err)
     message.value = 'Error loading todos'
@@ -52,17 +73,18 @@ const fetchTodos = async () => {
   }
 }
 
+const setStatus = (status: StatusFilter) => {
+  activeStatus.value = status
+  page.value = 1
+  fetchTodos()
+}
+
 const deleteTodo = async (id: number) => {
   if (!confirm('Are you sure you want to delete this todo?')) return
-
   try {
-    await $fetch(`/api/todos/${id}`, {
-      method: 'DELETE',
-      credentials: 'include'
-    })
-
+    await $fetch(`/api/todos/${id}`, { method: 'DELETE', credentials: 'include' })
     await fetchTodos()
-  } catch (err) {
+  } catch {
     alert('Delete failed')
   }
 }
@@ -70,14 +92,9 @@ const deleteTodo = async (id: number) => {
 const toggleComplete = async (todo: Todo) => {
   try {
     if (!userId.value) {
-      const userRes = await $fetch<{ success: boolean; user?: any }>('/api/auth/me', {
-        credentials: 'include'
-      })
-      if (userRes.success && userRes.user) {
-        userId.value = userRes.user.id
-      }
+      const userRes = await $fetch<{ success: boolean; user?: any }>('/api/auth/me', { credentials: 'include' })
+      if (userRes.success && userRes.user) userId.value = userRes.user.id
     }
-
     await $fetch(`/api/todos/${todo.id}`, {
       method: 'POST',
       body: {
@@ -87,208 +104,227 @@ const toggleComplete = async (todo: Todo) => {
         start_date: todo.start_date,
         due_date: todo.due_date,
         completed: !todo.completed,
-        user_id: userId.value
+        user_id: userId.value,
       },
-      credentials: 'include'
+      credentials: 'include',
     })
-    
     await fetchTodos()
-  } catch (err) {
-    console.error('Toggle error:', err)
+  } catch {
     alert('Update failed')
   }
 }
 
-const getCategoryEmoji = (category: string) => {
-  const emojiMap: { [key: string]: string } = {
-    study: '📚',
-    bug: '🐞',
-    api: '🔗',
-    code: '💻',
-    exam: '📝',
-    health: '💖',
-    work: '🏢',
-    personal: '👤',
-    shopping: '🛒'
-  }
-  return emojiMap[category] || '📌'
+const parseDate = (raw: string | null): string | null => {
+  if (!raw) return null
+  const str = String(raw).slice(0, 10)
+  return /^\d{4}-\d{2}-\d{2}$/.test(str) ? str : null
 }
 
-const formatDate = (dateString: string) => {
+const todayStr = (() => {
+  const n = new Date()
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
+})()
+
+const isOverdue = (todo: Todo) => {
+  if (todo.completed) return false
+  const due = parseDate(todo.due_date)
+  return due !== null && due < todayStr
+}
+
+const isInProgress = (todo: Todo) => {
+  if (todo.completed) return false
+  const start = parseDate(todo.start_date)
+  const due = parseDate(todo.due_date)
+  if (!start || !due) return false
+  return start <= todayStr && due >= todayStr
+}
+
+const getCategoryEmoji = (category: string) => {
+  const map: Record<string, string> = {
+    study: '📚', bug: '🐞', api: '🔗', code: '💻',
+    exam: '📝', health: '💖', work: '🏢', personal: '👤', shopping: '🛒',
+  }
+  return map[category] || '📌'
+}
+
+const formatDate = (dateString: string | null) => {
+  if (!dateString) return '—'
   const date = new Date(dateString)
+  if (isNaN(date.getTime())) return '—'
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-const nextPage = () => {
-  if (page.value < totalPages.value) {
-    page.value++
-    fetchTodos()
-  }
-}
-
-const prevPage = () => {
-  if (page.value > 1) {
-    page.value--
-    fetchTodos()
-  }
-}
+const nextPage = () => { if (page.value < totalPages.value) { page.value++; fetchTodos() } }
+const prevPage = () => { if (page.value > 1) { page.value--; fetchTodos() } }
 
 onMounted(async () => {
-  const userRes = await $fetch<{ success: boolean; user?: any }>('/api/auth/me', {
-    credentials: 'include'
-  })
-  
-  if (!userRes.success || !userRes.user) {
-    router.push('/login')
-    return
-  }
-  
+  const userRes = await $fetch<{ success: boolean; user?: any }>('/api/auth/me', { credentials: 'include' })
+  if (!userRes.success || !userRes.user) { router.push('/login'); return }
   userId.value = userRes.user.id
   await fetchTodos()
 })
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6 relative overflow-hidden">
-    <!-- Animated background elements -->
-    <div class="absolute inset-0 pointer-events-none">
-      <div class="absolute top-20 right-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob"></div>
-      <div class="absolute bottom-20 left-20 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob animation-delay-2000"></div>
-      <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob animation-delay-4000"></div>
-    </div>
+  <div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
 
-    <div class="max-w-5xl mx-auto relative z-10">
-      
-      <!-- Header Section -->
-      <div class="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 p-5 mb-6 animate-fadeIn">
-        <div class="flex flex-wrap justify-between items-center gap-3">
-          <div>
-            <h1 class="text-2xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-purple-400 bg-clip-text text-transparent mb-1">
-              My Task List
-            </h1>
-            <p class="text-sm text-gray-300">Manage your daily tasks efficiently</p>
-          </div>
-          
-          <div class="flex gap-3">
-            <NuxtLink 
-              to="/home" 
-              class="bg-white/10 hover:bg-white/20 backdrop-blur-lg border border-white/20 text-white px-4 py-2 rounded-xl transition-all shadow-lg flex items-center gap-2"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-              </svg>
-              Back
-            </NuxtLink>
-            
-            <NuxtLink 
-              to="/todos/create" 
-              class="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-4 py-2 rounded-xl transition-all shadow-lg flex items-center gap-2"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-              </svg>
-              Add New
-            </NuxtLink>
-          </div>
+    <!-- Top navbar -->
+    <div class="bg-white/10 border-b border-white/10 px-6 py-4">
+      <div class="max-w-4xl mx-auto flex items-center justify-between">
+        <h1 class="text-xl font-semibold text-white">My Tasks</h1>
+        <div class="flex gap-2">
+          <NuxtLink
+            to="/home"
+            class="text-sm px-3 py-1.5 border border-white/20 rounded text-gray-300 hover:bg-white/10 transition-colors"
+          >
+            ← Back
+          </NuxtLink>
+          <NuxtLink
+            to="/todos/create"
+            class="text-sm px-3 py-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+          >
+            + Add Task
+          </NuxtLink>
         </div>
       </div>
+    </div>
 
-      <!-- Error Message -->
-      <div v-if="message" class="bg-red-500/10 border border-red-500/30 text-red-300 px-4 py-3 rounded-xl mb-4 backdrop-blur-lg">
+    <div class="max-w-4xl mx-auto px-6 py-6">
+
+      <!-- Filter tabs -->
+      <div class="flex gap-1 mb-5 border-b border-white/10">
+        <button
+          v-for="tab in statusTabs"
+          :key="tab.key"
+          @click="setStatus(tab.key)"
+          class="px-4 py-2 text-sm font-medium transition-colors -mb-px border-b-2"
+          :class="activeStatus === tab.key
+            ? 'border-purple-400 text-purple-300'
+            : 'border-transparent text-gray-400 hover:text-gray-200'"
+        >
+          {{ tab.label }}
+          <span
+            v-if="activeStatus === tab.key && totalCount > 0"
+            class="ml-1.5 text-xs bg-purple-500/30 text-purple-300 px-1.5 py-0.5 rounded-full"
+          >
+            {{ totalCount }}
+          </span>
+        </button>
+      </div>
+
+      <!-- Error -->
+      <div v-if="message" class="mb-4 text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded px-4 py-2">
         {{ message }}
       </div>
 
-      <!-- Loading State -->
-      <div v-if="loading" class="text-center py-12 animate-fadeIn">
-        <div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-purple-400"></div>
-        <p class="text-gray-300 mt-3">Loading tasks...</p>
+      <!-- Loading -->
+      <div v-if="loading" class="text-center py-16 text-gray-400 text-sm">
+        Loading...
       </div>
 
-      <!-- Empty State -->
-      <div v-else-if="todos.length === 0" class="bg-white/10 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-12 text-center animate-fadeIn">
-        <svg class="w-16 h-16 mx-auto text-purple-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-        </svg>
-        <p class="text-white text-lg">No tasks found</p>
-        <p class="text-gray-400 text-sm mt-2">Create your first task to get started</p>
+      <!-- Empty state -->
+      <div v-else-if="todos.length === 0" class="text-center py-16">
+        <p class="text-gray-400 text-sm">
+          {{
+            activeStatus === 'completed'   ? 'No completed tasks yet.' :
+            activeStatus === 'overdue'     ? 'No overdue tasks, great job!' :
+            activeStatus === 'in_progress' ? 'No tasks in progress.' :
+            'No tasks yet. Create one!'
+          }}
+        </p>
       </div>
 
-      <!-- Todos Grid -->
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <!-- Task list -->
+      <div v-else class="space-y-3 mb-6">
         <div
           v-for="todo in todos"
           :key="todo.id"
-          class="bg-white/10 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 hover:bg-white/15 transition-all p-5 animate-fadeIn"
-          :class="{ 'opacity-60': todo.completed }"
+          class="bg-white/10 border rounded-lg p-4 hover:bg-white/15 transition-colors"
+          :class="isOverdue(todo) ? 'border-red-500/30' : 'border-white/10'"
         >
-          <!-- Category Badge -->
-          <div class="flex justify-between items-start mb-3">
-            <span class="inline-flex items-center gap-1 px-3 py-1 bg-purple-500/20 text-purple-300 text-xs font-medium rounded-lg border border-purple-500/30">
-              {{ getCategoryEmoji(todo.category) }}
-              {{ todo.category }}
-            </span>
-            <input 
-              type="checkbox" 
+          <div class="flex items-start gap-3">
+
+            <!-- Checkbox -->
+            <input
+              type="checkbox"
               :checked="todo.completed"
               @change="toggleComplete(todo)"
-              class="w-5 h-5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500 cursor-pointer bg-white/20 border-white/30"
-            >
-          </div>
+              class="mt-1 w-4 h-4 accent-purple-500 cursor-pointer flex-shrink-0"
+            />
 
-          <!-- Title & Description -->
-          <h3 
-            class="font-semibold text-lg mb-2 text-white"
-            :class="{ 'line-through text-gray-400': todo.completed }"
-          >
-            {{ todo.title }}
-          </h3>
-          <p class="text-sm text-gray-300 mb-3 line-clamp-2">
-            {{ todo.description || 'No description' }}
-          </p>
+            <div class="flex-1 min-w-0">
+              <!-- Title + badges -->
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                <span
+                  class="text-sm font-medium text-white"
+                  :class="{ 'line-through text-gray-500': todo.completed }"
+                >
+                  {{ todo.title }}
+                </span>
 
-          <!-- Dates -->
-          <div class="flex gap-2 text-xs text-gray-400 mb-4 pb-4 border-b border-white/10">
-            <span>📅 {{ formatDate(todo.start_date) }}</span>
-            <span>→</span>
-            <span>⏰ {{ formatDate(todo.due_date) }}</span>
-          </div>
+                <span v-if="todo.completed"
+                  class="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full border border-green-500/20">
+                  Done
+                </span>
+                <span v-else-if="isOverdue(todo)"
+                  class="text-xs px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full border border-red-500/20">
+                  Overdue
+                </span>
+                <span v-else-if="isInProgress(todo)"
+                  class="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded-full border border-blue-500/20">
+                  In Progress
+                </span>
 
-          <!-- Actions -->
-          <div class="flex gap-2">
-            <NuxtLink
-              :to="`/todos/edit-${todo.id}`"
-              class="flex-1 text-center text-sm px-3 py-2 bg-yellow-500/20 text-yellow-300 rounded-lg hover:bg-yellow-500/30 transition-all border border-yellow-500/30"
-            >
-              Edit
-            </NuxtLink>
-            <button
-              @click="deleteTodo(todo.id)"
-              class="flex-1 text-sm px-3 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-all border border-red-500/30"
-            >
-              Delete
-            </button>
+                <span class="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/20">
+                  {{ getCategoryEmoji(todo.category) }} {{ todo.category }}
+                </span>
+              </div>
+
+              <!-- Description -->
+              <p v-if="todo.description" class="text-xs text-gray-400 mb-2 truncate">
+                {{ todo.description }}
+              </p>
+
+              <!-- Dates + actions -->
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <span class="text-xs" :class="isOverdue(todo) ? 'text-red-400' : 'text-gray-500'">
+                  {{ formatDate(todo.start_date) }} → {{ formatDate(todo.due_date) }}
+                </span>
+                <div class="flex gap-3">
+                  <NuxtLink
+                    :to="`/todos/edit/${todo.id}`"
+                    class="text-xs text-yellow-400 hover:underline"
+                  >
+                    Edit
+                  </NuxtLink>
+                  <button
+                    @click="deleteTodo(todo.id)"
+                    class="text-xs text-red-400 hover:underline"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
 
       <!-- Pagination -->
-      <div v-if="totalPages > 1" class="bg-white/10 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-4 flex justify-center items-center gap-4 animate-fadeIn">
+      <div v-if="totalPages > 1" class="flex items-center justify-center gap-3">
         <button
           @click="prevPage"
           :disabled="page === 1"
-          class="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all border border-white/20"
+          class="text-sm px-3 py-1.5 border border-white/20 rounded text-gray-300 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           Previous
         </button>
-
-        <span class="text-white font-medium">
-          Page {{ page }} of {{ totalPages }}
-        </span>
-
+        <span class="text-sm text-gray-400">Page {{ page }} of {{ totalPages }}</span>
         <button
           @click="nextPage"
           :disabled="page === totalPages"
-          class="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          class="text-sm px-3 py-1.5 border border-white/20 rounded text-gray-300 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           Next
         </button>
@@ -299,49 +335,9 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-@keyframes fadeIn {
-  0% { 
-    opacity: 0; 
-    transform: translateY(20px); 
-  }
-  100% { 
-    opacity: 1; 
-    transform: translateY(0); 
-  }
-}
-
-@keyframes blob {
-  0%, 100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(30px, -50px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
-}
-
-.animate-fadeIn {
-  animation: fadeIn 0.6s ease forwards;
-}
-
-.animate-blob {
-  animation: blob 7s infinite;
-}
-
-.animation-delay-2000 {
-  animation-delay: 2s;
-}
-
-.animation-delay-4000 {
-  animation-delay: 4s;
-}
-
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.truncate {
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

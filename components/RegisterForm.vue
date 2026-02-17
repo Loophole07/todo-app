@@ -8,26 +8,31 @@ const name = ref('')
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
-const message = ref('')
 const loading = ref(false)
 
+const errors = ref<Record<string, string>>({})
+
+// Toast
+type Toast = { id: number; message: string; type: 'success' | 'error' }
+const toasts = ref<Toast[]>([])
+let toastId = 0
+
+const showToast = (message: string, type: 'success' | 'error') => {
+  const id = ++toastId
+  toasts.value.push({ id, message, type })
+  setTimeout(() => {
+    toasts.value = toasts.value.filter(t => t.id !== id)
+  }, 3500)
+}
+
 const handleRegister = async () => {
-  message.value = ''
+  if (loading.value) return
 
-  if (!name.value || !email.value || !password.value || !confirmPassword.value) {
-    message.value = 'Please fill all fields'
-    return
-  }
-
-  if (password.value !== confirmPassword.value) {
-    message.value = 'Passwords do not match'
-    return
-  }
-
+  errors.value = {}
   loading.value = true
 
   try {
-    const res = await $fetch<{ success: boolean; message: string }>(
+    const res = await $fetch<{ success: boolean; message: string; field?: string }>(
       '/api/auth/register',
       {
         method: 'POST',
@@ -35,18 +40,23 @@ const handleRegister = async () => {
           name: name.value,
           email: email.value,
           password: password.value,
+          confirmPassword: confirmPassword.value,
         },
       }
     )
 
-    message.value = res.message
-
-    if (res.success) {
-      setTimeout(() => router.push('/'), 1500)
+    if (!res.success) {
+      if (res.field) errors.value[res.field] = res.message
+      showToast(res.message, 'error')
+      return
     }
-  } catch (err) {
-    console.error('REGISTER ERROR 👉', err)
-    message.value = 'Server error'
+
+    showToast(res.message, 'success')
+    setTimeout(() => router.push('/'), 1500)
+
+  } catch (err: any) {
+    const msg = err?.data?.statusMessage || 'Server error, please try again'
+    showToast(msg, 'error')
   } finally {
     loading.value = false
   }
@@ -54,60 +64,120 @@ const handleRegister = async () => {
 </script>
 
 <template>
-  <div class="bg-white w-full max-w-md rounded-xl shadow p-6 mx-auto mt-10">
-    <h1 class="text-2xl font-bold text-center mb-6">
-      Registration Form
-    </h1>
+  <div class="min-h-screen flex items-center justify-center bg-gray-50 px-4">
 
-    <input
-      v-model="name"
-      type="text"
-      placeholder="Full Name"
-      class="w-full mb-3 px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300"
-    />
+    <!-- Toast container -->
+    <div class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+      <transition-group name="toast">
+        <div
+          v-for="toast in toasts"
+          :key="toast.id"
+          class="px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white pointer-events-auto flex items-center gap-2 min-w-[220px]"
+          :class="toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'"
+        >
+          <span>{{ toast.type === 'success' ? '✅' : '❌' }}</span>
+          <span>{{ toast.message }}</span>
+        </div>
+      </transition-group>
+    </div>
 
-    <input
-      v-model="email"
-      type="email"
-      placeholder="Email"
-      class="w-full mb-3 px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300"
-    />
+    <div class="bg-white w-full max-w-md rounded-xl shadow p-6 mx-auto">
+      <h1 class="text-2xl font-bold text-center mb-6">Registration Form</h1>
 
-    <input
-      v-model="password"
-      type="password"
-      placeholder="Password"
-      class="w-full mb-3 px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300"
-    />
+      <div class="space-y-3">
 
-    <input
-      v-model="confirmPassword"
-      type="password"
-      placeholder="Confirm Password"
-      class="w-full mb-4 px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300"
-    />
+        <!-- Name -->
+        <div>
+          <input
+            v-model="name"
+            type="text"
+            placeholder="Full Name"
+            @input="delete errors.name"
+            class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring transition"
+            :class="errors.name
+              ? 'border-red-400 focus:ring-red-300 bg-red-50'
+              : 'border-gray-300 focus:ring-blue-300'"
+          />
+          <p v-if="errors.name" class="text-red-500 text-xs mt-1 ml-1">{{ errors.name }}</p>
+        </div>
 
-    <button
-      @click="handleRegister"
-      :disabled="loading"
-      class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      {{ loading ? 'Registering...' : 'Register' }}
-    </button>
+        <!-- Email -->
+        <div>
+          <input
+            v-model="email"
+            type="email"
+            placeholder="Email"
+            @input="delete errors.email"
+            class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring transition"
+            :class="errors.email
+              ? 'border-red-400 focus:ring-red-300 bg-red-50'
+              : 'border-gray-300 focus:ring-blue-300'"
+          />
+          <p v-if="errors.email" class="text-red-500 text-xs mt-1 ml-1">{{ errors.email }}</p>
+        </div>
 
-    <button
-      @click="router.push('/')"
-      class="w-full mt-3 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300"
-    >
-      Go to Home
-    </button>
+        <!-- Password -->
+        <div>
+          <input
+            v-model="password"
+            type="password"
+            placeholder="Password"
+            @input="delete errors.password"
+            class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring transition"
+            :class="errors.password
+              ? 'border-red-400 focus:ring-red-300 bg-red-50'
+              : 'border-gray-300 focus:ring-blue-300'"
+          />
+          <p v-if="errors.password" class="text-red-500 text-xs mt-1 ml-1">{{ errors.password }}</p>
+        </div>
 
-    <p
-      v-if="message"
-      class="text-center mt-4 text-sm"
-      :class="message.includes('success') ? 'text-green-600' : 'text-red-500'"
-    >
-      {{ message }}
-    </p>
+        <!-- Confirm Password -->
+        <div>
+          <input
+            v-model="confirmPassword"
+            type="password"
+            placeholder="Confirm Password"
+            @input="delete errors.confirmPassword"
+            class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring transition"
+            :class="errors.confirmPassword
+              ? 'border-red-400 focus:ring-red-300 bg-red-50'
+              : 'border-gray-300 focus:ring-blue-300'"
+          />
+          <p v-if="errors.confirmPassword" class="text-red-500 text-xs mt-1 ml-1">{{ errors.confirmPassword }}</p>
+        </div>
+
+        <!-- Submit -->
+        <button
+          @click="handleRegister"
+          :disabled="loading"
+          class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+        >
+          {{ loading ? 'Registering...' : 'Register' }}
+        </button>
+
+        <button
+          @click="router.push('/')"
+          class="w-full bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300 transition"
+        >
+          Go to Home
+        </button>
+
+      </div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+.toast-enter-from {
+  opacity: 0;
+  transform: translateX(40px);
+}
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(40px);
+}
+</style>

@@ -1,4 +1,3 @@
-
 import db from '~/server/db'
 import { admin } from '~/server/db/schema'
 import { eventHandler } from 'h3'
@@ -13,7 +12,6 @@ type AdminLoginBody = {
 export default eventHandler(async (event) => {
   let body: AdminLoginBody
 
-  // --- Safely parse JSON body ---
   try {
     const raw = await new Promise<string>((resolve, reject) => {
       let data = ''
@@ -22,44 +20,57 @@ export default eventHandler(async (event) => {
       event.node?.req.on('error', reject)
     })
     body = JSON.parse(raw)
-  } catch (err) {
+  } catch {
     return { success: false, message: 'Invalid request body' }
   }
 
   const { email, password } = body
-  if (!email || !password) return { success: false, message: 'Email and password are required' }
+
+  // --- Email ---
+  if (!email?.trim()) {
+    return { success: false, field: 'email', message: 'Email is required' }
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email.trim())) {
+    return { success: false, field: 'email', message: 'Please enter a valid email address' }
+  }
+
+  // --- Password ---
+  if (!password) {
+    return { success: false, field: 'password', message: 'Password is required' }
+  }
 
   try {
-    // --- Find admin by email ---
     const [adminUser] = await db
       .select()
       .from(admin)
-      .where(eq(admin.email, email))
+      .where(eq(admin.email, email.trim().toLowerCase()))
       .limit(1)
 
-    if (!adminUser) return { success: false, message: 'Invalid credentials' }
-
-    // --- Since password is plain text (not hashed) ---
-    if (password !== adminUser.password_hash) {
-      return { success: false, message: 'Invalid credentials' }
+    if (!adminUser) {
+      return { success: false, field: 'email', message: 'No admin account found with this email' }
     }
 
-    // --- Set HTTP-only cookie for session ---
+    if (password !== adminUser.password_hash) {
+      return { success: false, field: 'password', message: 'Incorrect password' }
+    }
+
     event.node?.res?.setHeader(
       'Set-Cookie',
       cookie.serialize('admin_session', adminUser.id.toString(), {
         httpOnly: true,
         path: '/',
-        maxAge: 60 * 60 * 24, // 1 day
+        maxAge: 60 * 60 * 24,
       })
     )
 
     return {
       success: true,
       message: 'Login successful',
-      redirect: '/admin', // frontend can use this to navigate
+      redirect: '/admin',
       admin: { id: adminUser.id, username: adminUser.username, email: adminUser.email },
     }
+
   } catch (err) {
     console.error('ADMIN LOGIN ERROR 👉', err)
     return { success: false, message: 'Server error, try again later' }

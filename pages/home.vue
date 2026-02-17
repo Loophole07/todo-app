@@ -28,7 +28,6 @@ onMounted(async () => {
 })
 
 const handleLogout = async () => {
-  // Ask for confirmation first
   if (!confirm('Are you sure you want to logout?')) {
     return
   }
@@ -62,7 +61,7 @@ const handleLogout = async () => {
       </div>
     </div>
 
-    <!-- Animated background elements - contained within viewport -->
+    <!-- Animated background elements -->
     <div v-else class="absolute inset-0 pointer-events-none">
       <div class="absolute top-20 right-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob"></div>
       <div class="absolute bottom-20 left-20 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob animation-delay-2000"></div>
@@ -189,7 +188,6 @@ const handleLogout = async () => {
 </template>
 
 <style scoped>
-/* Fade-in animation */
 @keyframes fadeIn {
   0% { 
     opacity: 0; 
@@ -201,7 +199,6 @@ const handleLogout = async () => {
   }
 }
 
-/* Blob animation for background */
 @keyframes blob {
   0%, 100% {
     transform: translate(0, 0) scale(1);
@@ -250,7 +247,6 @@ const handleLogout = async () => {
   animation-delay: 4s;
 }
 
-/* Smooth transition for all interactive elements */
 button:hover,
 a:hover {
   transition: all 0.3s ease-in-out;
