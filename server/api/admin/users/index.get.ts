@@ -1,25 +1,37 @@
 import { eventHandler } from 'h3'
 import db from '~/server/db'
 import { users } from '~/server/db/schema'
+import { like, or } from 'drizzle-orm'
 
 export default eventHandler(async (event) => {
   try {
-     const reqUrl = event.req.url || '/'
+    const reqUrl  = event.req.url || '/'
     const baseUrl = 'http://localhost'
-    const url = new URL(reqUrl, baseUrl)
+    const url     = new URL(reqUrl, baseUrl)
 
-    const page = Number(url.searchParams.get('page') ?? '1')
+    const page    = Number(url.searchParams.get('page')    ?? '1')
     const perPage = Number(url.searchParams.get('perPage') ?? '10')
+    const search  = url.searchParams.get('search')?.trim() || ''
 
+    // ── Fetch all users 
+    const allUsers = await db
+      .select({
+        id:    users.id,
+        name:  users.name,
+        email: users.email,
+      })
+      .from(users)
+      .where(
+        search
+          ? or(
+              like(users.name,  `%${search}%`),
+              like(users.email, `%${search}%`),
+            )
+          : undefined
+      )
 
-    const allUsers = await db.select({
-      id: users.id,
-      name: users.name,
-      email: users.email
-    }).from(users)
-
- 
-    const total = allUsers.length
+  
+    const total         = allUsers.length
     const paginatedUsers = allUsers.slice((page - 1) * perPage, page * perPage)
 
     return {
@@ -32,6 +44,7 @@ export default eventHandler(async (event) => {
         total
       }
     }
+
   } catch (error) {
     console.error('FETCH USERS ERROR ', error)
     return {

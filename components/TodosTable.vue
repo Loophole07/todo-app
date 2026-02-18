@@ -26,10 +26,9 @@ type TodosResponse = {
   message?: string
 }
 
-// --- Reactive state ---
 const todos = ref<Todo[]>([])
 const loading = ref(false)
-const category = ref('') // selected category
+const category = ref('')
 const page = ref(1)
 const pagination = ref<Pagination>({
   page: 1,
@@ -38,7 +37,6 @@ const pagination = ref<Pagination>({
   total: 0
 })
 
-// --- Fetch todos ---
 const fetchTodos = async () => {
   loading.value = true
   try {
@@ -47,19 +45,16 @@ const fetchTodos = async () => {
       perPage: pagination.value.perPage
     }
     if (category.value) params.category = category.value
-
     const res = await $fetch<TodosResponse>('/api/admin/todos', { params })
-
     todos.value = res.todos
     if (res.pagination) pagination.value = res.pagination
   } catch (err) {
-    console.error('FETCH TODOS ERROR 👉', err)
+    console.error('FETCH TODOS ERROR:', err)
   } finally {
     loading.value = false
   }
 }
 
-// --- Pagination functions ---
 const goToPage = (p: number) => {
   if (p >= 1 && p <= pagination.value.totalPages) {
     page.value = p
@@ -69,112 +64,148 @@ const goToPage = (p: number) => {
 const prevPage = () => goToPage(page.value - 1)
 const nextPage = () => goToPage(page.value + 1)
 
-// --- Computed for page buttons ---
 const pageNumbers = computed(() => {
   const nums: number[] = []
   for (let i = 1; i <= pagination.value.totalPages; i++) nums.push(i)
   return nums
 })
 
-// --- Format date ---
-const formatDate = (date: string) => new Date(date).toISOString().split('T')[0]
+const formatDate = (date: string) =>
+  new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 
-// --- Watch for category changes ---
+const categoryColor: Record<string, string> = {
+  study:    'bg-purple-50 text-purple-600',
+  bug:      'bg-red-50 text-red-500',
+  api:      'bg-cyan-50 text-cyan-600',
+  code:     'bg-blue-50 text-blue-600',
+  exam:     'bg-orange-50 text-orange-500',
+  health:   'bg-green-50 text-green-600',
+  work:     'bg-indigo-50 text-indigo-600',
+  personal: 'bg-pink-50 text-pink-500',
+  shopping: 'bg-yellow-50 text-yellow-600',
+}
+
 watch(category, () => {
   page.value = 1
   fetchTodos()
 })
 
-// --- Initial fetch ---
 onMounted(() => fetchTodos())
 </script>
 
 <template>
   <div class="bg-white rounded-xl shadow p-6 overflow-x-auto">
 
-    
     <!-- Todos Table -->
     <table class="w-full text-sm">
       <thead>
-        <tr class="border-b text-gray-600">
-          <th class="py-3 text-left">ID</th>
-          <th class="py-3 text-left">Title</th>
-          <th class="py-3 text-left">Description</th>
-          <th class="py-3 text-left">Category</th>
-          <th class="py-3 text-left">Status</th>
-          <th class="py-3 text-left">Start</th>
-          <th class="py-3 text-left">Due</th>
+        <tr class="border-b border-gray-100">
+          <th class="py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">ID</th>
+          <th class="py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Title</th>
+          <th class="py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Description</th>
+          <th class="py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Category</th>
+          <th class="py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Status</th>
+          <th class="py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Start</th>
+          <th class="py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Due</th>
         </tr>
       </thead>
       <tbody>
         <tr
           v-for="todo in todos"
           :key="todo.id"
-          class="border-b hover:bg-gray-50"
+          class="border-b border-gray-50 hover:bg-gray-50 transition"
         >
-          <td class="py-2">{{ todo.id }}</td>
-          <td class="py-2 font-medium">{{ todo.title }}</td>
-          <td class="py-2 text-gray-700">{{ todo.description }}</td>
-          <td class="py-2 text-gray-700">{{ todo.category || '-' }}</td>
-          <td class="py-2">
+          <td class="py-2.5">
+            <span class="text-xs text-gray-300 font-mono">#{{ todo.id }}</span>
+          </td>
+
+          <td class="py-2.5">
+            <span class="font-medium text-gray-800">{{ todo.title }}</span>
+          </td>
+
+          <td class="py-2.5 max-w-xs">
+            <span class="text-gray-400 text-xs leading-relaxed line-clamp-2">{{ todo.description }}</span>
+          </td>
+
+          <td class="py-2.5">
             <span
-              class="px-2 py-1 rounded text-xs font-semibold"
-              :class="todo.completed
-                ? 'bg-green-100 text-green-700'
-                : 'bg-red-100 text-red-600'"
+              v-if="todo.category"
+              class="text-xs font-medium px-2 py-0.5 rounded-full capitalize"
+              :class="categoryColor[todo.category] || 'bg-gray-100 text-gray-500'"
             >
-              {{ todo.completed ? 'Completed' : 'Pending' }}
+              {{ todo.category }}
+            </span>
+            <span v-else class="text-gray-300 text-xs">—</span>
+          </td>
+
+          <td class="py-2.5">
+            <span
+              class="px-2 py-1 rounded-full text-xs font-medium"
+              :class="todo.completed
+                ? 'bg-green-50 text-green-600'
+                : 'bg-amber-50 text-amber-600'"
+            >
+              {{ todo.completed ? '✓ Completed' : '● Pending' }}
             </span>
           </td>
-          <td class="py-2">{{ formatDate(todo.start_date) }}</td>
-          <td class="py-2">{{ formatDate(todo.due_date) }}</td>
+
+          <td class="py-2.5">
+            <span class="text-xs text-gray-500">{{ formatDate(todo.start_date) }}</span>
+          </td>
+
+          <td class="py-2.5">
+            <span class="text-xs text-gray-500">{{ formatDate(todo.due_date) }}</span>
+          </td>
         </tr>
       </tbody>
     </table>
 
-    <!-- Loading state -->
-    <p v-if="loading" class="text-center text-gray-500 mt-6">Loading...</p>
+    <!-- Loading -->
+    <div v-if="loading" class="flex items-center justify-center gap-2 mt-6">
+      <div class="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+      <p class="text-sm text-gray-400">Loading...</p>
+    </div>
 
-    <!-- Empty state -->
-    <p v-if="!loading && todos.length === 0" class="text-center text-gray-500 mt-6">
+    <!-- Empty -->
+    <p v-if="!loading && todos.length === 0" class="text-center text-gray-400 text-sm mt-6">
       No todos found
     </p>
 
     <!-- Pagination -->
-    <div
-      v-if="pagination.totalPages > 1"
-      class="flex justify-between items-center mt-4"
-    >
-      <p class="text-sm text-gray-500">
-        Page {{ page }} of {{ pagination.totalPages }} (Total: {{ pagination.total }})
+    <div v-if="pagination.totalPages > 1" class="flex justify-between items-center mt-4 flex-wrap gap-2">
+      <p class="text-xs text-gray-400">
+        Page {{ page }} of {{ pagination.totalPages }}
+        <span class="text-gray-300">&middot;</span>
+        {{ pagination.total }} total
       </p>
-      <div class="flex gap-2">
+      <div class="flex gap-1 flex-wrap">
         <button
           @click="prevPage"
           :disabled="page === 1"
-          class="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-40"
+          class="px-3 py-1 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-30 transition"
         >
-          Prev
+          ← Prev
         </button>
-
         <button
           v-for="num in pageNumbers"
           :key="num"
           @click="goToPage(num)"
-          class="px-3 py-1 border rounded"
-          :class="num === page ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'"
+          class="px-3 py-1 text-xs border rounded-lg transition"
+          :class="num === page
+            ? 'bg-blue-600 text-white border-blue-600'
+            : 'border-gray-200 hover:bg-gray-50'"
         >
           {{ num }}
         </button>
-
         <button
           @click="nextPage"
           :disabled="page === pagination.totalPages"
-          class="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-40"
+          class="px-3 py-1 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-30 transition"
         >
-          Next
+          Next →
         </button>
       </div>
     </div>
+
   </div>
 </template>

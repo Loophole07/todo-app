@@ -47,16 +47,23 @@ const categoryStats = ref<Record<string, number>>({})
 const selectedCategory = ref<string | null>(null)
 const activeTab = ref('dashboard')
 
+// ── Toast ─────────────────────────────────────────────────
+const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null)
+const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  toast.value = { message, type }
+  setTimeout(() => (toast.value = null), 3000)
+}
+
 // Fetch stats
 const fetchStats = async () => {
   try {
-    const usersRes = await $fetch<{ success: boolean; totalUsers: number }>('/api/users/get-count')
+    const usersRes = await $fetch<{ success: boolean; totalUsers: number }>('/api/admin/users/get-count')
     const todosRes = await $fetch<{ success: boolean; totalTodos: number }>('/api/admin/todos/get-count')
 
     stats.value.find(s => s.title === 'Total Users')!.value = usersRes?.totalUsers ?? 0
     stats.value.find(s => s.title === 'Total Todos')!.value = todosRes?.totalTodos ?? 0
   } catch (err) {
-    console.error('FETCH STATS ERROR ', err)
+    console.error('FETCH STATS ERROR:', err)
   }
 }
 
@@ -64,10 +71,10 @@ const fetchStats = async () => {
 const fetchUsers = async () => {
   usersLoading.value = true
   try {
-    const res = await $fetch<{ success: boolean; users: User[] }>('/api/users')
+    const res = await $fetch<{ success: boolean; users: User[] }>('/api/admin/users')
     users.value = res?.users ?? []
   } catch (err) {
-    console.error('FETCH USERS ERROR ', err)
+    console.error('FETCH USERS ERROR:', err)
     usersError.value = 'Failed to fetch users'
   } finally {
     usersLoading.value = false
@@ -81,7 +88,7 @@ const fetchTodos = async () => {
     const res = await $fetch<{ success: boolean; todos: Todo[] }>('/api/admin/todos')
     todos.value = res?.todos ?? []
   } catch (err) {
-    console.error('FETCH TODOS ERROR 👉', err)
+    console.error('FETCH TODOS ERROR:', err)
     todosError.value = 'Failed to fetch todos'
   } finally {
     todosLoading.value = false
@@ -94,7 +101,7 @@ const fetchCategoryStats = async () => {
     const res = await $fetch<{ success: boolean; data: Record<string, number> }>('/api/analytics/todo-categories')
     if (res?.success) categoryStats.value = res.data
   } catch (err) {
-    console.error('FETCH CATEGORY STATS ERROR 👉', err)
+    console.error('FETCH CATEGORY STATS ERROR:', err)
   }
 }
 
@@ -104,26 +111,24 @@ const viewCategoryUsers = (category: string) => {
   activeTab.value = 'category-users'
 }
 
-// Logout function
+// ── Logout ────────────────────────────────────────────────
 const logout = async () => {
   if (!confirm('Are you sure you want to logout?')) return
 
   try {
-    // Use POST method
     const res = await $fetch<{ success: boolean; message: string }>('/api/admin/logout', {
       method: 'POST',
     })
 
     if (res.success) {
-      alert(res.message)
-      router.push('/') // redirect to login page
+      showToast(res.message, 'success')
+      setTimeout(() => router.push('/'), 1500)
     }
-  } catch (err) {
-    console.error('LOGOUT ERROR 👉', err)
-    alert('Failed to logout')
+  } catch (err: any) {
+    console.error('LOGOUT ERROR:', err)
+    showToast(err?.data?.statusMessage || 'Failed to logout', 'error')
   }
 }
-
 
 // Initial fetch
 onMounted(() => {
@@ -136,6 +141,20 @@ onMounted(() => {
 
 <template>
   <div class="flex min-h-screen bg-gray-50">
+
+    <!-- Toast Notification -->
+    <transition name="fade">
+      <div
+        v-if="toast"
+        :class="[
+          'fixed top-5 right-5 z-50 px-5 py-3 rounded-lg shadow-lg text-white text-sm font-medium',
+          toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        ]"
+      >
+        {{ toast.message }}
+      </div>
+    </transition>
+
     <!-- Sidebar -->
     <aside class="w-64 bg-white shadow-lg flex flex-col p-6">
       <div class="mb-8">
@@ -156,7 +175,7 @@ onMounted(() => {
         </button>
       </nav>
 
-      <!-- Logout Button at Bottom -->
+      <!-- Logout Button -->
       <div class="mt-auto pt-6 border-t border-gray-200">
         <button
           @click="logout"
@@ -179,8 +198,10 @@ onMounted(() => {
       </header>
 
       <main class="p-6 flex-1 flex flex-col gap-6 overflow-hidden">
+
         <!-- Dashboard -->
         <div v-if="activeTab === 'dashboard'" class="space-y-6">
+
           <!-- Stats -->
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <div
@@ -251,6 +272,7 @@ onMounted(() => {
           </div>
           <div v-else class="text-red-500 text-center py-20 text-lg font-medium">{{ todosError }}</div>
         </div>
+
       </main>
     </div>
   </div>
@@ -263,4 +285,6 @@ body {
 main {
   overflow: hidden;
 }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>

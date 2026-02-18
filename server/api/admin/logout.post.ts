@@ -11,7 +11,7 @@ export default eventHandler((event) => {
     cookie.serialize('admin_session', '', {
       httpOnly: true,
       path: '/',
-      maxAge: -1, 
+      maxAge: -1,
     })
   )
 
