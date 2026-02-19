@@ -7,59 +7,64 @@ import CategoryUserList from '~/components/analytics/CategoryUserList.vue'
 
 const router = useRouter()
 
-// Sidebar links
 const links = [
   { title: 'Dashboard', id: 'dashboard' },
-  { title: 'Users', id: 'users' },
-  { title: 'Todos', id: 'todos' },
+  { title: 'Users',     id: 'users' },
+  { title: 'Todos',     id: 'todos' },
 ]
 
-// Stats
 type Stat = { title: string; value: number }
 const stats = ref<Stat[]>([
   { title: 'Total Users', value: 0 },
   { title: 'Total Todos', value: 0 },
 ])
 
-// Users
 type User = { id: number; name: string; email: string }
-const users = ref<User[]>([])
+const users        = ref<User[]>([])
 const usersLoading = ref(true)
-const usersError = ref('')
+const usersError   = ref('')
 
-// Todos
 type Todo = {
-  id: number
-  title: string
-  description: string
-  completed: boolean
-  start_date: string
-  due_date: string
-  user_id: number
-  category: string
+  id: number; title: string; description: string
+  completed: boolean; start_date: string; due_date: string
+  user_id: number; category: string
 }
-const todos = ref<Todo[]>([])
+const todos        = ref<Todo[]>([])
 const todosLoading = ref(true)
-const todosError = ref('')
+const todosError   = ref('')
 
-// Analytics
-const categoryStats = ref<Record<string, number>>({})
-const selectedCategory = ref<string | null>(null)
-const activeTab = ref('dashboard')
+const categoryStats      = ref<Record<string, number>>({})
+const selectedCategory   = ref<string | null>(null)
+const activeTab          = ref('dashboard')
 
-// ── Toast ─────────────────────────────────────────────────
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null)
+// ── Toast ─────────────────────────────────────────────────────
+type Toast = { id: number; message: string; type: 'success' | 'error' }
+const toasts = ref<Toast[]>([])
+let toastId = 0
+
 const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-  toast.value = { message, type }
-  setTimeout(() => (toast.value = null), 3000)
+  const id = ++toastId
+  toasts.value.push({ id, message, type })
+  setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id) }, 3000)
 }
 
-// Fetch stats
+// ── Confirm modal ──────────────────────────────────────────────
+const showConfirmModal = ref(false)
+let confirmResolve: ((val: boolean) => void) | null = null
+
+const showConfirm = (): Promise<boolean> => {
+  showConfirmModal.value = true
+  return new Promise((resolve) => { confirmResolve = resolve })
+}
+
+const onConfirm = () => { showConfirmModal.value = false; confirmResolve?.(true) }
+const onCancel  = () => { showConfirmModal.value = false; confirmResolve?.(false) }
+// ──────────────────────────────────────────────────────────────
+
 const fetchStats = async () => {
   try {
     const usersRes = await $fetch<{ success: boolean; totalUsers: number }>('/api/admin/users/get-count')
     const todosRes = await $fetch<{ success: boolean; totalTodos: number }>('/api/admin/todos/get-count')
-
     stats.value.find(s => s.title === 'Total Users')!.value = usersRes?.totalUsers ?? 0
     stats.value.find(s => s.title === 'Total Todos')!.value = todosRes?.totalTodos ?? 0
   } catch (err) {
@@ -67,7 +72,6 @@ const fetchStats = async () => {
   }
 }
 
-// Fetch users
 const fetchUsers = async () => {
   usersLoading.value = true
   try {
@@ -81,7 +85,6 @@ const fetchUsers = async () => {
   }
 }
 
-// Fetch todos
 const fetchTodos = async () => {
   todosLoading.value = true
   try {
@@ -95,7 +98,6 @@ const fetchTodos = async () => {
   }
 }
 
-// Fetch category stats
 const fetchCategoryStats = async () => {
   try {
     const res = await $fetch<{ success: boolean; data: Record<string, number> }>('/api/analytics/todo-categories')
@@ -105,15 +107,14 @@ const fetchCategoryStats = async () => {
   }
 }
 
-// View users by category
 const viewCategoryUsers = (category: string) => {
   selectedCategory.value = category
   activeTab.value = 'category-users'
 }
 
-// ── Logout ────────────────────────────────────────────────
 const logout = async () => {
-  if (!confirm('Are you sure you want to logout?')) return
+  const confirmed = await showConfirm()
+  if (!confirmed) return
 
   try {
     const res = await $fetch<{ success: boolean; message: string }>('/api/admin/logout', {
@@ -123,6 +124,8 @@ const logout = async () => {
     if (res.success) {
       showToast(res.message, 'success')
       setTimeout(() => router.push('/'), 1500)
+    } else {
+      showToast('Logout failed. Please try again.', 'error')
     }
   } catch (err: any) {
     console.error('LOGOUT ERROR:', err)
@@ -130,7 +133,6 @@ const logout = async () => {
   }
 }
 
-// Initial fetch
 onMounted(() => {
   fetchStats()
   fetchUsers()
@@ -142,16 +144,65 @@ onMounted(() => {
 <template>
   <div class="flex min-h-screen bg-gray-50">
 
-    <!-- Toast Notification -->
-    <transition name="fade">
+    <!-- ── Toast notifications (top-right) ── -->
+    <div class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
+      <transition-group name="fade">
+        <div
+          v-for="toast in toasts"
+          :key="toast.id"
+          class="pointer-events-auto flex items-center gap-2 px-5 py-3 rounded-lg shadow-lg text-white text-sm font-medium min-w-[200px]"
+          :class="toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'"
+        >
+          <span>{{ toast.type === 'success' ? '✅' : '❌' }}</span>
+          <span>{{ toast.message }}</span>
+        </div>
+      </transition-group>
+    </div>
+
+    <!-- ── Centered logout confirmation modal ── -->
+    <transition name="modal">
       <div
-        v-if="toast"
-        :class="[
-          'fixed top-5 right-5 z-50 px-5 py-3 rounded-lg shadow-lg text-white text-sm font-medium',
-          toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-        ]"
+        v-if="showConfirmModal"
+        class="fixed inset-0 z-50 flex items-center justify-center px-4"
       >
-        {{ toast.message }}
+        <!-- Backdrop -->
+        <div
+          class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          @click="onCancel"
+        ></div>
+
+        <!-- Modal card -->
+        <div class="relative z-10 bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm animate-scaleIn">
+
+          <!-- Icon -->
+          <div class="flex items-center justify-center w-14 h-14 rounded-full bg-red-100 mx-auto mb-4">
+            <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </div>
+
+          <!-- Text -->
+          <h3 class="text-gray-800 text-lg font-semibold text-center mb-1">Confirm Logout</h3>
+          <p class="text-gray-500 text-sm text-center mb-6">Are you sure you want to sign out of the admin panel?</p>
+
+          <!-- Buttons -->
+          <div class="flex gap-3">
+            <button
+              @click="onCancel"
+              class="flex-1 py-2.5 rounded-xl border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm font-medium transition-all duration-200"
+            >
+              Cancel
+            </button>
+            <button
+              @click="onConfirm"
+              class="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-all duration-200"
+            >
+              Yes, Logout
+            </button>
+          </div>
+
+        </div>
       </div>
     </transition>
 
@@ -239,7 +290,6 @@ onMounted(() => {
                 <p class="text-gray-400 text-xs mt-1">todos</p>
                 <div class="w-12 h-1 bg-blue-400 rounded-full mt-3"></div>
               </div>
-
               <p
                 v-if="Object.keys(categoryStats).length === 0"
                 class="text-center text-gray-400 col-span-full py-10"
@@ -258,18 +308,14 @@ onMounted(() => {
         <!-- Users Table -->
         <div v-if="activeTab === 'users'" class="bg-white rounded-2xl shadow p-6">
           <UsersTable v-if="!usersLoading && !usersError" :users="users" />
-          <div v-else-if="usersLoading" class="text-gray-500 text-center py-20 text-lg font-medium">
-            Loading users...
-          </div>
+          <div v-else-if="usersLoading" class="text-gray-500 text-center py-20 text-lg font-medium">Loading users...</div>
           <div v-else class="text-red-500 text-center py-20 text-lg font-medium">{{ usersError }}</div>
         </div>
 
         <!-- Todos Table -->
         <div v-if="activeTab === 'todos'" class="bg-white rounded-2xl shadow p-6">
           <TodosTable v-if="!todosLoading && !todosError" :todos="todos" />
-          <div v-else-if="todosLoading" class="text-gray-500 text-center py-20 text-lg font-medium">
-            Loading todos...
-          </div>
+          <div v-else-if="todosLoading" class="text-gray-500 text-center py-20 text-lg font-medium">Loading todos...</div>
           <div v-else class="text-red-500 text-center py-20 text-lg font-medium">{{ todosError }}</div>
         </div>
 
@@ -279,12 +325,21 @@ onMounted(() => {
 </template>
 
 <style scoped>
-body {
-  font-family: 'Inter', sans-serif;
+body { font-family: 'Inter', sans-serif; }
+main { overflow: hidden; }
+
+/* Toast */
+.fade-enter-active, .fade-leave-active { transition: all 0.3s ease; }
+.fade-enter-from { opacity: 0; transform: translateX(20px); }
+.fade-leave-to   { opacity: 0; transform: translateX(20px); }
+
+/* Modal */
+.modal-enter-active, .modal-leave-active { transition: opacity 0.2s ease; }
+.modal-enter-from, .modal-leave-to { opacity: 0; }
+
+@keyframes scaleIn {
+  0%   { opacity: 0; transform: scale(0.9); }
+  100% { opacity: 1; transform: scale(1); }
 }
-main {
-  overflow: hidden;
-}
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
+.animate-scaleIn { animation: scaleIn 0.2s ease forwards; }
 </style>

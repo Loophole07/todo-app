@@ -4,20 +4,46 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
-const user = ref<{ id: number; name: string; email: string } | null>(null)
+const user    = ref<{ id: number; name: string; email: string } | null>(null)
 const loading = ref(true)
+
+// ── Toast system ──────────────────────────────────────────────
+type Toast = { id: number; message: string; type: 'success' | 'error' }
+const toasts = ref<Toast[]>([])
+let toastId = 0
+
+const showToast = (message: string, type: 'success' | 'error', duration = 3500) => {
+  const id = ++toastId
+  toasts.value.push({ id, message, type })
+  setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id) }, duration)
+}
+
+// ── Confirm modal ─────────────────────────────────────────────
+const showConfirmModal = ref(false)
+let confirmResolve: ((val: boolean) => void) | null = null
+
+const showConfirm = (): Promise<boolean> => {
+  showConfirmModal.value = true
+  return new Promise((resolve) => { confirmResolve = resolve })
+}
+
+const onConfirm = () => {
+  showConfirmModal.value = false
+  confirmResolve?.(true)
+}
+
+const onCancel = () => {
+  showConfirmModal.value = false
+  confirmResolve?.(false)
+}
+// ─────────────────────────────────────────────────────────────
 
 onMounted(async () => {
   try {
     const res = await $fetch<{ success: boolean; user?: any; message?: string }>('/api/auth/me', {
       credentials: 'include'
     })
-
-    if (!res.success || !res.user) {
-      router.push('/login')
-      return
-    }
-
+    if (!res.success || !res.user) { router.push('/login'); return }
     user.value = res.user
   } catch (err) {
     console.error('Failed to fetch user', err)
@@ -28,33 +54,96 @@ onMounted(async () => {
 })
 
 const handleLogout = async () => {
-  if (!confirm('Are you sure you want to logout?')) {
-    return
-  }
+  const confirmed = await showConfirm()
+  if (!confirmed) return
 
   try {
     const res = await $fetch<{ success: boolean; message: string }>('/api/auth/logout', {
       method: 'POST',
       credentials: 'include'
     })
-    
     if (res.success) {
-      alert('Logged out successfully!')
-      router.push('/')
+      showToast('Logged out successfully!', 'success')
+      setTimeout(() => router.push('/'), 1500)
     } else {
-      alert('Logout failed. Please try again.')
+      showToast('Logout failed. Please try again.', 'error')
     }
   } catch (error) {
     console.error('Logout error:', error)
-    alert('Logout failed. Please try again.')
+    showToast('Logout failed. Please try again.', 'error')
   }
 }
 </script>
 
 <template>
   <div class="h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-10 px-4 relative flex items-center">
+
+    <!-- ── Toast container (top-right) ── -->
+    <div class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+      <transition-group name="toast">
+        <div
+          v-for="toast in toasts"
+          :key="toast.id"
+          class="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg backdrop-blur-sm border text-sm font-medium text-white min-w-[200px]"
+          :class="toast.type === 'success'
+            ? 'bg-emerald-500/90 border-emerald-400/30'
+            : 'bg-red-500/90 border-red-400/30'"
+        >
+          <span>{{ toast.type === 'success' ? '✅' : '❌' }}</span>
+          <span>{{ toast.message }}</span>
+        </div>
+      </transition-group>
+    </div>
+
+    <!-- ── Centered logout confirmation modal ── -->
+    <transition name="modal">
+      <div
+        v-if="showConfirmModal"
+        class="fixed inset-0 z-50 flex items-center justify-center px-4"
+      >
+        <!-- Backdrop -->
+        <div
+          class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          @click="onCancel"
+        ></div>
+
+        <!-- Modal card -->
+        <div class="relative z-10 bg-slate-800/95 border border-white/20 rounded-2xl shadow-2xl p-6 w-full max-w-sm animate-scaleIn">
+
+          <!-- Icon -->
+          <div class="flex items-center justify-center w-14 h-14 rounded-full bg-red-500/15 border border-red-500/20 mx-auto mb-4">
+            <svg class="w-7 h-7 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </div>
+
+          <!-- Text -->
+          <h3 class="text-white text-lg font-semibold text-center mb-1">Confirm Logout</h3>
+          <p class="text-gray-400 text-sm text-center mb-6">Are you sure you want to sign out of your account?</p>
+
+          <!-- Buttons -->
+          <div class="flex gap-3">
+            <button
+              @click="onCancel"
+              class="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white text-sm font-medium transition-all duration-200"
+            >
+              Cancel
+            </button>
+            <button
+              @click="onConfirm"
+              class="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-all duration-200"
+            >
+              Yes, Logout
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </transition>
+
     <!-- Loading State -->
-    <div v-if="loading" class="absolute inset-0 flex items-center justify-center z-50">
+    <div v-if="loading" class="absolute inset-0 flex items-center justify-center z-40">
       <div class="text-center">
         <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-400 mx-auto"></div>
         <p class="mt-4 text-gray-300">Loading...</p>
@@ -70,7 +159,8 @@ const handleLogout = async () => {
 
     <div v-if="!loading && user" class="max-w-4xl mx-auto relative z-10 w-full">
       <div>
-        <!-- Header with User Info -->
+
+        <!-- Header -->
         <div class="text-center mb-6 animate-fadeIn">
           <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl shadow-lg mb-4 transform hover:rotate-6 transition-transform duration-300">
             <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -83,11 +173,7 @@ const handleLogout = async () => {
         </div>
 
         <!-- Stats Card -->
-        <div
-          class="mb-4 rounded-2xl shadow-2xl p-4 md:p-5
-                 bg-white/10 backdrop-blur-xl border border-white/20
-                 hover:bg-white/15 transition-all duration-300 animate-fadeIn delay-200"
-        >
+        <div class="mb-4 rounded-2xl shadow-2xl p-4 md:p-5 bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/15 transition-all duration-300 animate-fadeIn delay-200">
           <div class="flex items-center gap-3 mb-4">
             <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
               <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -101,16 +187,10 @@ const handleLogout = async () => {
 
         <!-- Action Cards Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 animate-fadeIn delay-400">
-        
-          <!-- Create Tasks Button -->
-          <NuxtLink
-            to="/todos/create"
-            class="group relative rounded-xl shadow-lg
-                   bg-gradient-to-r from-purple-600 to-blue-600
-                   hover:from-purple-700 hover:to-blue-700
-                   hover:shadow-2xl hover:scale-[1.02]
-                   transition-all duration-300 p-4 md:p-5 flex items-center gap-3 md:gap-4"
-          >
+
+          <!-- Create Tasks -->
+          <NuxtLink to="/todos/create"
+            class="group relative rounded-xl shadow-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 p-4 md:p-5 flex items-center gap-3 md:gap-4">
             <div class="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
               <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
@@ -125,15 +205,9 @@ const handleLogout = async () => {
             </svg>
           </NuxtLink>
 
-          <!-- All Todo List Button -->
-          <NuxtLink
-            to="/todos"
-            class="group relative rounded-xl shadow-lg
-                   bg-gradient-to-r from-emerald-600 to-teal-600
-                   hover:from-emerald-700 hover:to-teal-700
-                   hover:shadow-2xl hover:scale-[1.02]
-                   transition-all duration-300 p-4 md:p-5 flex items-center gap-3 md:gap-4"
-          >
+          <!-- All Todo List -->
+          <NuxtLink to="/todos"
+            class="group relative rounded-xl shadow-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 p-4 md:p-5 flex items-center gap-3 md:gap-4">
             <div class="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
               <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
@@ -148,15 +222,27 @@ const handleLogout = async () => {
             </svg>
           </NuxtLink>
 
-          <!-- Logout Button -->
+          <!-- My Profile -->
+          <NuxtLink to="/profile"
+            class="group relative rounded-xl shadow-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 p-4 md:p-5 flex items-center gap-3 md:gap-4">
+            <div class="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+              <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zM21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <div class="text-left flex-1 min-w-0">
+              <h3 class="text-white font-semibold text-base md:text-lg truncate">My Profile</h3>
+              <p class="text-amber-100 text-xs md:text-sm truncate">View and edit your details</p>
+            </div>
+            <svg class="w-5 h-5 text-white flex-shrink-0 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+            </svg>
+          </NuxtLink>
+
+          <!-- Logout -->
           <button
             @click="handleLogout"
-            class="group relative rounded-xl shadow-lg
-                   bg-gradient-to-r from-red-600 to-rose-600
-                   hover:from-red-700 hover:to-rose-700
-                   hover:shadow-2xl hover:scale-[1.02]
-                   transition-all duration-300 p-4 md:p-5 flex items-center gap-3 md:gap-4 md:col-span-2"
-          >
+            class="group relative rounded-xl shadow-lg bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 p-4 md:p-5 flex items-center gap-3 md:gap-4">
             <div class="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
               <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
@@ -170,6 +256,7 @@ const handleLogout = async () => {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
             </svg>
           </button>
+
         </div>
 
         <!-- Helper Text -->
@@ -189,66 +276,38 @@ const handleLogout = async () => {
 
 <style scoped>
 @keyframes fadeIn {
-  0% { 
-    opacity: 0; 
-    transform: translateY(20px); 
-  }
-  100% { 
-    opacity: 1; 
-    transform: translateY(0); 
-  }
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes blob {
-  0%, 100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(30px, -50px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
 }
 
-.animate-fadeIn {
-  animation: fadeIn 0.6s ease forwards;
+@keyframes scaleIn {
+  0% { opacity: 0; transform: scale(0.9); }
+  100% { opacity: 1; transform: scale(1); }
 }
 
-.animate-fadeIn.delay-200 {
-  animation-delay: 0.2s;
-  opacity: 0;
-}
+.animate-fadeIn { animation: fadeIn 0.6s ease forwards; }
+.animate-fadeIn.delay-200 { animation-delay: 0.2s; opacity: 0; }
+.animate-fadeIn.delay-300 { animation-delay: 0.3s; opacity: 0; }
+.animate-fadeIn.delay-400 { animation-delay: 0.4s; opacity: 0; }
+.animate-fadeIn.delay-500 { animation-delay: 0.5s; opacity: 0; }
 
-.animate-fadeIn.delay-300 {
-  animation-delay: 0.3s;
-  opacity: 0;
-}
+.animate-blob { animation: blob 7s infinite; }
+.animation-delay-2000 { animation-delay: 2s; }
+.animation-delay-4000 { animation-delay: 4s; }
 
-.animate-fadeIn.delay-400 {
-  animation-delay: 0.4s;
-  opacity: 0;
-}
+.animate-scaleIn { animation: scaleIn 0.2s ease forwards; }
 
-.animate-fadeIn.delay-500 {
-  animation-delay: 0.5s;
-  opacity: 0;
-}
+.toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
+.toast-enter-from { opacity: 0; transform: translateX(40px); }
+.toast-leave-to   { opacity: 0; transform: translateX(40px); }
 
-.animate-blob {
-  animation: blob 7s infinite;
-}
 
-.animation-delay-2000 {
-  animation-delay: 2s;
-}
-
-.animation-delay-4000 {
-  animation-delay: 4s;
-}
-
-button:hover,
-a:hover {
-  transition: all 0.3s ease-in-out;
-}
+.modal-enter-active, .modal-leave-active { transition: opacity 0.2s ease; }
+.modal-enter-from, .modal-leave-to { opacity: 0; }
 </style>

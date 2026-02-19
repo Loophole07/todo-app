@@ -15,17 +15,19 @@ type Todo = {
 
 type StatusFilter = 'all' | 'in_progress' | 'overdue' | 'completed'
 
-const todos = ref<Todo[]>([])
-const loading = ref(false)
-const message = ref('')
-const page = ref(1)
-const totalPages = ref(1)
-const totalCount = ref(0)
-const userId = ref<number | null>(null)
-const activeStatus = ref<StatusFilter>('all')
+const todos            = ref<Todo[]>([])
+const loading          = ref(false)
+const message          = ref('')
+const page             = ref(1)
+const totalPages       = ref(1)
+const totalCount       = ref(0)
+const userId           = ref<number | null>(null)
+const activeStatus     = ref<StatusFilter>('all')
+const searchQuery      = ref('')
+const selectedCategory = ref('')
 
 const router = useRouter()
-const route = useRoute()
+const route  = useRoute()
 
 const VALID_STATUSES: StatusFilter[] = ['all', 'in_progress', 'overdue', 'completed']
 const queryStatus = route.query.status as string
@@ -40,29 +42,45 @@ const statusTabs: { key: StatusFilter; label: string }[] = [
   { key: 'completed',   label: 'Completed' },
 ]
 
+const CATEGORIES = [
+  { value: '',         label: 'All Categories' },
+  { value: 'study',    label: '📚 Study' },
+  { value: 'bug',      label: '🐞 Bug' },
+  { value: 'api',      label: '🔗 API' },
+  { value: 'code',     label: '💻 Code' },
+  { value: 'exam',     label: '📝 Exam' },
+  { value: 'health',   label: '💖 Health' },
+  { value: 'work',     label: '🏢 Work' },
+  { value: 'personal', label: '👤 Personal' },
+  { value: 'shopping', label: '🛒 Shopping' },
+]
+
 const fetchTodos = async () => {
   loading.value = true
   message.value = ''
 
   try {
-    let queryString = `/api/todos?page=${page.value}&perPage=6`
-    if (activeStatus.value !== 'all') {
-      queryString += `&status=${activeStatus.value}`
-    }
+    const params = new URLSearchParams()
+    params.set('page',    String(page.value))
+    params.set('perPage', '6')
+
+    if (activeStatus.value !== 'all') params.set('status',   activeStatus.value)
+    if (selectedCategory.value)       params.set('category', selectedCategory.value)
+    if (searchQuery.value.trim())     params.set('search',   searchQuery.value.trim())
 
     const res = await $fetch<{
       success: boolean
       todos: Todo[]
       pagination: { totalPages: number; total: number }
       message?: string
-    }>(queryString, { credentials: 'include' })
+    }>(`/api/todos?${params.toString()}`, { credentials: 'include' })
 
     if (!res.success) {
       message.value = res.message || 'Failed to fetch todos'
       return
     }
 
-    todos.value = res.todos
+    todos.value      = res.todos
     totalPages.value = res.pagination.totalPages
     totalCount.value = res.pagination.total
   } catch (err) {
@@ -78,6 +96,24 @@ const setStatus = (status: StatusFilter) => {
   page.value = 1
   fetchTodos()
 }
+
+const onSearch = () => {
+  page.value = 1
+  fetchTodos()
+}
+
+const onCategoryChange = () => {
+  page.value = 1
+  fetchTodos()
+}
+
+const clearSearch = () => {
+  searchQuery.value = ''
+  onSearch()
+}
+
+const hasActiveFilters = () =>
+  searchQuery.value.trim() !== '' || selectedCategory.value !== ''
 
 const deleteTodo = async (id: number) => {
   if (!confirm('Are you sure you want to delete this todo?')) return
@@ -98,13 +134,13 @@ const toggleComplete = async (todo: Todo) => {
     await $fetch(`/api/todos/${todo.id}`, {
       method: 'POST',
       body: {
-        title: todo.title,
+        title:       todo.title,
         description: todo.description,
-        category: todo.category,
-        start_date: todo.start_date,
-        due_date: todo.due_date,
-        completed: !todo.completed,
-        user_id: userId.value,
+        category:    todo.category,
+        start_date:  todo.start_date,
+        due_date:    todo.due_date,
+        completed:   !todo.completed,
+        user_id:     userId.value,
       },
       credentials: 'include',
     })
@@ -134,7 +170,7 @@ const isOverdue = (todo: Todo) => {
 const isInProgress = (todo: Todo) => {
   if (todo.completed) return false
   const start = parseDate(todo.start_date)
-  const due = parseDate(todo.due_date)
+  const due   = parseDate(todo.due_date)
   if (!start || !due) return false
   return start <= todayStr && due >= todayStr
 }
@@ -168,24 +204,72 @@ onMounted(async () => {
 <template>
   <div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
 
-    <!-- Top navbar -->
-    <div class="bg-white/10 border-b border-white/10 px-6 py-4">
-      <div class="max-w-4xl mx-auto flex items-center justify-between">
-        <h1 class="text-xl font-semibold text-white">My Tasks</h1>
-        <div class="flex gap-2">
+    <!-- Navbar -->
+    <div class="bg-white/10 border-b border-white/10 px-6 py-3">
+      <div class="max-w-4xl mx-auto flex items-center gap-3">
+
+        <!-- Title -->
+        <h1 class="text-base font-semibold text-white whitespace-nowrap">My Tasks</h1>
+
+        <!-- Search input -->
+        <div class="relative flex-1">
+          <svg
+            class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+          </svg>
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search tasks..."
+            @input="onSearch"
+            class="w-full pl-9 pr-8 py-1.5 text-sm bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 outline-none focus:border-purple-400 focus:bg-white/15 transition-all duration-200"
+          />
+          <button
+            v-if="searchQuery"
+            @click="clearSearch"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Category dropdown -->
+        <select
+          v-model="selectedCategory"
+          @change="onCategoryChange"
+          class="py-1.5 px-2 text-sm bg-white/10 border border-white/20 rounded-lg text-gray-300 outline-none focus:border-purple-400 transition-all duration-200 cursor-pointer whitespace-nowrap"
+        >
+          <option
+            v-for="cat in CATEGORIES"
+            :key="cat.value"
+            :value="cat.value"
+            class="bg-slate-800 text-white"
+          >
+            {{ cat.label }}
+          </option>
+        </select>
+
+        <!-- Action buttons -->
+        <div class="flex gap-2 flex-shrink-0">
           <NuxtLink
             to="/home"
-            class="text-sm px-3 py-1.5 border border-white/20 rounded text-gray-300 hover:bg-white/10 transition-colors"
+            class="text-sm px-3 py-1.5 border border-white/20 rounded text-gray-300 hover:bg-white/10 transition-colors whitespace-nowrap"
           >
             ← Back
           </NuxtLink>
           <NuxtLink
             to="/todos/create"
-            class="text-sm px-3 py-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+            class="text-sm px-3 py-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors whitespace-nowrap"
           >
             + Add Task
           </NuxtLink>
         </div>
+
       </div>
     </div>
 
@@ -212,6 +296,25 @@ onMounted(async () => {
         </button>
       </div>
 
+      <!-- Active filter indicators -->
+      <div v-if="hasActiveFilters()" class="flex items-center gap-2 mb-4 flex-wrap">
+        <span class="text-xs text-gray-400">Filtering by:</span>
+        <span
+          v-if="searchQuery.trim()"
+          class="flex items-center gap-1 text-xs px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/20"
+        >
+          "{{ searchQuery.trim() }}"
+          <button @click="clearSearch" class="hover:text-white ml-0.5">✕</button>
+        </span>
+        <span
+          v-if="selectedCategory"
+          class="flex items-center gap-1 text-xs px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/20"
+        >
+          {{ getCategoryEmoji(selectedCategory) }} {{ selectedCategory }}
+          <button @click="selectedCategory = ''; onCategoryChange()" class="hover:text-white ml-0.5">✕</button>
+        </span>
+      </div>
+
       <!-- Error -->
       <div v-if="message" class="mb-4 text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded px-4 py-2">
         {{ message }}
@@ -226,12 +329,21 @@ onMounted(async () => {
       <div v-else-if="todos.length === 0" class="text-center py-16">
         <p class="text-gray-400 text-sm">
           {{
-            activeStatus === 'completed'   ? 'No completed tasks yet.' :
-            activeStatus === 'overdue'     ? 'No overdue tasks, great job!' :
-            activeStatus === 'in_progress' ? 'No tasks in progress.' :
-            'No tasks yet. Create one!'
+            searchQuery || selectedCategory
+              ? 'No tasks match your search.'
+              : activeStatus === 'completed'   ? 'No completed tasks yet.' :
+                activeStatus === 'overdue'     ? 'No overdue tasks, great job!' :
+                activeStatus === 'in_progress' ? 'No tasks in progress.' :
+                'No tasks yet. Create one!'
           }}
         </p>
+        <button
+          v-if="hasActiveFilters()"
+          @click="searchQuery = ''; selectedCategory = ''; onSearch()"
+          class="mt-3 text-sm text-purple-400 hover:underline"
+        >
+          Clear filters
+        </button>
       </div>
 
       <!-- Task list -->
