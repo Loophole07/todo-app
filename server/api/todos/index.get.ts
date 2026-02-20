@@ -3,6 +3,24 @@ import db from '~/server/db'
 import { todos } from '~/server/db/schema'
 import { eq, and, like } from 'drizzle-orm'
 
+type DeadlineUrgency = 'safe' | 'moderate' | 'urgent' | 'none'
+
+/** Returns days remaining until due date (0 = today, negative = overdue). null if no due date. */
+const getDaysLeft = (due: Date | null, today: Date): number | null => {
+  if (!due) return null
+  return Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+/** Maps days-left to a colour urgency tier. */
+const getDeadlineUrgency = (daysLeft: number | null): DeadlineUrgency => {
+  if (daysLeft === null)              return 'none'
+  if (daysLeft >= 4 && daysLeft <= 6) return 'safe'     // 🟢 green
+  if (daysLeft >= 2 && daysLeft <  4) return 'moderate' // 🟡 amber
+  if (daysLeft >= 0 && daysLeft <  2) return 'urgent'   // 🔴 scarlet
+  if (daysLeft < 0)                   return 'urgent'   // overdue → also urgent
+  return 'none'
+}
+
 export default eventHandler(async (event) => {
   try {
     const userId = event.context.userId as number
@@ -11,9 +29,9 @@ export default eventHandler(async (event) => {
       throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
     }
 
-    const reqUrl = event.req.url || '/'
+    const reqUrl  = event.req.url || '/'
     const baseUrl = 'http://localhost'
-    const url = new URL(reqUrl, baseUrl)
+    const url     = new URL(reqUrl, baseUrl)
 
     const category = url.searchParams.get('category')?.trim()
     const status   = url.searchParams.get('status')?.trim()
@@ -24,49 +42,69 @@ export default eventHandler(async (event) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // --- Build where conditions ---
+    // ── Build DB where conditions ──────────────────────────────────────────
     const conditions = [eq(todos.user_id, userId)]
-
-    if (category) {
-      conditions.push(eq(todos.category, category))
-    }
-
-    if (search) {
-      conditions.push(like(todos.title, `%${search}%`))
-    }
+    if (category) conditions.push(eq(todos.category, category))
+    if (search)   conditions.push(like(todos.title, `%${search}%`))
 
     let allTodos = await db
       .select()
       .from(todos)
       .where(and(...conditions))
 
-    // Helper: safely parse due_date
-    const parseDue = (raw: Date | string | null): Date | null => {
-      if (raw === null || raw === undefined) return null
+    // ── Helper: parse due_date / start_date to midnight Date ──────────────
+    const parseDate = (raw: Date | string | null | undefined): Date | null => {
+      if (raw == null) return null
       const d = new Date(raw)
       d.setHours(0, 0, 0, 0)
       return isNaN(d.getTime()) ? null : d
     }
 
-    // --- Apply status filter in JS ---
+    // ── Status filter ──────────────────────────────────────────────────────
     if (status === 'completed') {
       allTodos = allTodos.filter((t) => t.completed === true)
+
     } else if (status === 'overdue') {
       allTodos = allTodos.filter((t) => {
         if (t.completed) return false
-        const due = parseDue(t.due_date)
+        const due = parseDate(t.due_date)
         return due !== null && due < today
       })
-    } else if (status === 'in_progress') {
+
+    } else if (status === 'upcoming') {
+      // Not completed, start_date is strictly in the future
       allTodos = allTodos.filter((t) => {
         if (t.completed) return false
-        const due = parseDue(t.due_date)
-        return due === null || due >= today
+        const start = parseDate(t.start_date)
+        return start !== null && start > today
+      })
+
+    } else if (status === 'in_progress') {
+      // Not completed, not overdue, already started (start <= today <= due)
+      allTodos = allTodos.filter((t) => {
+        if (t.completed) return false
+        const start = parseDate(t.start_date)
+        const due   = parseDate(t.due_date)
+        if (!start || !due) return false
+        const isOverdue = due < today
+        return start <= today && !isOverdue
       })
     }
 
-    const total          = allTodos.length
-    const paginatedTodos = allTodos.slice((page - 1) * perPage, page * perPage)
+    // ── Attach deadline urgency to every todo ──────────────────────────────
+    const todosWithUrgency = allTodos.map((t) => {
+      const due      = parseDate(t.due_date)
+      const daysLeft = t.completed ? null : getDaysLeft(due, today)
+      return {
+        ...t,
+        days_left:        daysLeft,
+        deadline_urgency: t.completed ? ('none' as DeadlineUrgency) : getDeadlineUrgency(daysLeft),
+      }
+    })
+
+    // ── Pagination ─────────────────────────────────────────────────────────
+    const total          = todosWithUrgency.length
+    const paginatedTodos = todosWithUrgency.slice((page - 1) * perPage, page * perPage)
 
     return {
       success: true,

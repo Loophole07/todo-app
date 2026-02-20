@@ -4,14 +4,16 @@ import { ref, onMounted, computed } from 'vue'
 type TodoStats = {
   total: number
   completed: number
-  pending: number
+  upcoming: number
+  in_progress: number
   overdue: number
 }
 
 const stats = ref<TodoStats>({
   total: 0,
   completed: 0,
-  pending: 0,
+  upcoming: 0,
+  in_progress: 0,
   overdue: 0
 })
 
@@ -24,7 +26,7 @@ const completionPercentage = computed(() => {
 
 const fetchStats = async () => {
   loading.value = true
-  
+
   try {
     const res = await $fetch<{ success: boolean; stats: TodoStats }>('/api/todos/stats', {
       credentials: 'include'
@@ -69,7 +71,7 @@ onMounted(() => {
       </div>
 
       <!-- Stats Grid -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
 
         <!-- Total Tasks -->
         <NuxtLink
@@ -99,7 +101,21 @@ onMounted(() => {
           <p class="text-3xl font-bold text-green-400">{{ stats.completed }}</p>
         </NuxtLink>
 
-        <!-- Pending -->
+        <!-- Upcoming -->
+        <NuxtLink
+          to="/todos?status=upcoming"
+          class="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-sky-500/10 hover:border-sky-400/40 hover:scale-[1.03] transition-all duration-200 cursor-pointer block"
+        >
+          <div class="flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+            <span class="text-xs text-gray-400 font-medium">Upcoming</span>
+          </div>
+          <p class="text-3xl font-bold text-sky-400">{{ stats.upcoming }}</p>
+        </NuxtLink>
+
+        <!-- In Progress -->
         <NuxtLink
           to="/todos?status=in_progress"
           class="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-yellow-500/10 hover:border-yellow-400/40 hover:scale-[1.03] transition-all duration-200 cursor-pointer block"
@@ -110,7 +126,7 @@ onMounted(() => {
             </svg>
             <span class="text-xs text-gray-400 font-medium">In Progress</span>
           </div>
-          <p class="text-3xl font-bold text-yellow-400">{{ stats.pending }}</p>
+          <p class="text-3xl font-bold text-yellow-400">{{ stats.in_progress }}</p>
         </NuxtLink>
 
         <!-- Overdue -->

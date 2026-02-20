@@ -19,39 +19,59 @@ type UsersResponse = {
 
 const router = useRouter()
 
-const users = ref<User[]>([])
+const users   = ref<User[]>([])
 const loading = ref(false)
-const page = ref(1)
-const search = ref('')
+const page    = ref(1)
+const search  = ref('')
 
 const pagination = ref<Pagination>({
-  page: 1,
-  perPage: 10,
-  totalPages: 1,
-  total: 0
+  page: 1, perPage: 10, totalPages: 1, total: 0
 })
 
+// ── Toast ─────────────────────────────────────────────────────────────────────
+type Toast = { id: number; message: string; type: 'success' | 'error' }
+const toasts = ref<Toast[]>([])
+let toastId = 0
 
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null)
 const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-  toast.value = { message, type }
-  setTimeout(() => (toast.value = null), 3000)
+  const id = ++toastId
+  toasts.value.push({ id, message, type })
+  setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id) }, 3500)
 }
+// ─────────────────────────────────────────────────────────────────────────────
 
-
-const confirmDialog = ref<{ show: boolean; user: User | null }>({
-  show: false,
-  user: null
+// ── Delete confirmation modal ─────────────────────────────────────────────────
+const deleteModal = ref({
+  show:    false,
+  user:    null as User | null,
+  loading: false,
 })
 
 const askDelete = (user: User) => {
-  confirmDialog.value = { show: true, user }
+  deleteModal.value = { show: true, user, loading: false }
 }
 
 const cancelDelete = () => {
-  confirmDialog.value = { show: false, user: null }
+  if (deleteModal.value.loading) return
+  deleteModal.value = { show: false, user: null, loading: false }
 }
 
+const confirmDelete = async () => {
+  const user = deleteModal.value.user
+  if (!user) return
+  deleteModal.value.loading = true
+  try {
+    await $fetch(`/api/admin/users/${user.id}`, { method: 'DELETE' })
+    showToast(`${user.name} deleted successfully`, 'success')
+    deleteModal.value = { show: false, user: null, loading: false }
+    fetchUsers()
+  } catch (err: any) {
+    console.error('DELETE ERROR:', err)
+    showToast(err?.data?.statusMessage || 'Failed to delete user', 'error')
+    deleteModal.value.loading = false
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 const fetchUsers = async () => {
   loading.value = true
@@ -73,24 +93,15 @@ const fetchUsers = async () => {
   }
 }
 
-
 let searchTimeout: ReturnType<typeof setTimeout>
 const onSearch = () => {
   clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => {
-    page.value = 1
-    fetchUsers()
-  }, 400)
+  searchTimeout = setTimeout(() => { page.value = 1; fetchUsers() }, 400)
 }
-
 
 const goToPage = (p: number) => {
-  if (p >= 1 && p <= pagination.value.totalPages) {
-    page.value = p
-    fetchUsers()
-  }
+  if (p >= 1 && p <= pagination.value.totalPages) { page.value = p; fetchUsers() }
 }
-
 const prevPage = () => goToPage(page.value - 1)
 const nextPage = () => goToPage(page.value + 1)
 
@@ -98,108 +109,103 @@ const pageNumbers = computed(() =>
   Array.from({ length: pagination.value.totalPages }, (_, i) => i + 1)
 )
 
-
-const handleDelete = async () => {
-  const user = confirmDialog.value.user
-  if (!user) return
-  cancelDelete()
-  try {
-    await $fetch(`/api/admin/users/${user.id}`, { method: 'DELETE' })
-    showToast(`${user.name} deleted successfully`, 'success')
-    fetchUsers()
-  } catch (err: any) {
-    console.error('DELETE ERROR:', err)
-    showToast(err?.data?.statusMessage || 'Failed to delete user', 'error')
-  }
-}
-
 onMounted(fetchUsers)
 </script>
 
 <template>
   <div class="bg-white rounded-xl shadow p-6 w-full">
 
-    <!-- Toast -->
-    <transition name="fade">
-      <div
-        v-if="toast"
-        :class="[
-          'fixed top-5 right-5 z-50 px-5 py-3 rounded-xl shadow-lg text-white text-sm font-medium flex items-center gap-2',
-          toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-        ]"
-      >
-        <svg v-if="toast.type === 'success'" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-        </svg>
-        <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-        {{ toast.message }}
-      </div>
-    </transition>
+    <!-- ── Toast container ───────────────────────────────────────────────── -->
+    <div class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+      <transition-group name="toast">
+        <div
+          v-for="toast in toasts" :key="toast.id"
+          class="px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white pointer-events-auto flex items-center gap-2 min-w-[200px] backdrop-blur-sm"
+          :class="toast.type === 'success'
+            ? 'bg-emerald-500/90 border border-emerald-400/30'
+            : 'bg-red-500/90 border border-red-400/30'"
+        >
+          <span>{{ toast.type === 'success' ? '✅' : '❌' }}</span>
+          <span>{{ toast.message }}</span>
+        </div>
+      </transition-group>
+    </div>
 
-    <!-- Confirm Dialog -->
-    <transition name="fade">
+    <!-- ── Delete confirmation modal ─────────────────────────────────────── -->
+    <transition name="modal">
       <div
-        v-if="confirmDialog.show"
-        class="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+        v-if="deleteModal.show"
+        class="fixed inset-0 z-50 flex items-center justify-center px-4"
+        @click.self="cancelDelete"
       >
-        <div class="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4">
-          <div class="flex items-center gap-3">
-            <div class="bg-red-50 p-2 rounded-full">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-              </svg>
-            </div>
-            <h3 class="text-base font-semibold text-gray-800">Delete User</h3>
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+
+        <!-- Card -->
+        <div class="relative z-10 w-full max-w-sm bg-white border border-gray-100 rounded-2xl shadow-2xl p-6 animate-modalIn">
+
+          <!-- Icon -->
+          <div class="flex items-center justify-center w-12 h-12 bg-red-50 border border-red-100 rounded-xl mx-auto mb-4">
+            <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
           </div>
-          <p class="text-sm text-gray-500">
-            Are you sure you want to delete
-            <span class="font-semibold text-gray-800">{{ confirmDialog.user?.name }}</span>?
-            This action cannot be undone.
+
+          <h3 class="text-gray-800 font-bold text-center text-lg mb-1">Delete User?</h3>
+          <p class="text-gray-400 text-sm text-center mb-2">You're about to permanently delete</p>
+
+          <!-- User name pill -->
+          <p class="text-gray-800 text-sm font-semibold text-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 mb-1 truncate">
+            {{ deleteModal.user?.name }}
           </p>
-          <div class="flex gap-2 justify-end">
+          <p class="text-gray-400 text-xs text-center mb-5">{{ deleteModal.user?.email }}</p>
+          <p class="text-gray-400 text-xs text-center mb-5">This action cannot be undone.</p>
+
+          <!-- Buttons -->
+          <div class="flex gap-3">
             <button
               @click="cancelDelete"
-              class="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm transition"
+              :disabled="deleteModal.loading"
+              class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-medium transition disabled:opacity-50"
             >
               Cancel
             </button>
             <button
-              @click="handleDelete"
-              class="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 text-sm font-medium transition"
+              @click="confirmDelete"
+              :disabled="deleteModal.loading"
+              class="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              Yes, Delete
+              <div v-if="deleteModal.loading" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              <span>{{ deleteModal.loading ? 'Deleting...' : 'Yes, Delete' }}</span>
             </button>
           </div>
+
         </div>
       </div>
     </transition>
 
-    <!-- Search Bar -->
+    <!-- ── Search bar ─────────────────────────────────────────────────────── -->
     <div class="relative mb-4">
-      <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-300 pointer-events-none"
+        fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
       </svg>
       <input
-        v-model="search"
-        @input="onSearch"
-        type="text"
+        v-model="search" @input="onSearch" type="text"
         placeholder="Search by name or email..."
-        class="w-full pl-9 pr-4 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400 text-gray-600 placeholder-gray-300"
+        class="w-full pl-9 pr-8 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400 text-gray-600 placeholder-gray-300"
       />
-      <button
-        v-if="search"
-        @click="search = ''; page = 1; fetchUsers()"
-        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <button v-if="search" @click="search = ''; page = 1; fetchUsers()"
+        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
     </div>
 
-    <!-- Table -->
+    <!-- ── Table ──────────────────────────────────────────────────────────── -->
     <table class="w-full table-auto text-sm">
       <thead>
         <tr class="border-b border-gray-100">
@@ -210,11 +216,8 @@ onMounted(fetchUsers)
         </tr>
       </thead>
       <tbody>
-        <tr
-          v-for="user in users"
-          :key="user.id"
-          class="border-b border-gray-50 hover:bg-gray-50 transition"
-        >
+        <tr v-for="user in users" :key="user.id"
+          class="border-b border-gray-50 hover:bg-gray-50 transition">
           <td class="py-1">
             <span class="text-xs text-gray-300 font-mono">#{{ user.id }}</span>
           </td>
@@ -231,16 +234,12 @@ onMounted(fetchUsers)
           </td>
           <td class="py-1">
             <div class="flex gap-2 flex-wrap">
-              <NuxtLink
-                :to="`/admin/users/edit/${user.id}`"
-                class="px-2 py-1 text-xs font-medium rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition"
-              >
+              <NuxtLink :to="`/admin/users/edit/${user.id}`"
+                class="px-2 py-1 text-xs font-medium rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition">
                 Edit
               </NuxtLink>
-              <button
-                @click="askDelete(user)"
-                class="px-2 py-1 text-xs font-medium rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition"
-              >
+              <button @click="askDelete(user)"
+                class="px-2 py-1 text-xs font-medium rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">
                 Delete
               </button>
             </div>
@@ -268,37 +267,39 @@ onMounted(fetchUsers)
         {{ pagination.total }} total
       </p>
       <div class="flex gap-1 flex-wrap">
-        <button
-          @click="prevPage"
-          :disabled="page === 1"
-          class="px-2 py-1 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-30 transition"
-        >
+        <button @click="prevPage" :disabled="page === 1"
+          class="px-2 py-1 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-30 transition">
           ← Prev
         </button>
-        <button
-          v-for="num in pageNumbers"
-          :key="num"
-          @click="goToPage(num)"
+        <button v-for="num in pageNumbers" :key="num" @click="goToPage(num)"
           class="px-2 py-1 text-xs border rounded-lg transition"
-          :class="num === page
-            ? 'bg-blue-600 text-white border-blue-600'
-            : 'border-gray-200 hover:bg-gray-50'"
-        >
+          :class="num === page ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 hover:bg-gray-50'">
           {{ num }}
         </button>
-        <button
-          @click="nextPage"
-          :disabled="page === pagination.totalPages"
-          class="px-2 py-1 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-30 transition"
-        >
+        <button @click="nextPage" :disabled="page === pagination.totalPages"
+          class="px-2 py-1 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-30 transition">
           Next →
         </button>
       </div>
     </div>
+
   </div>
 </template>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
+/* Toast slide-in from right */
+.toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
+.toast-enter-from { opacity: 0; transform: translateX(40px); }
+.toast-leave-to   { opacity: 0; transform: translateX(40px); }
+
+/* Modal backdrop fade */
+.modal-enter-active, .modal-leave-active { transition: opacity 0.2s ease; }
+.modal-enter-from, .modal-leave-to       { opacity: 0; }
+
+/* Modal card pop-in */
+@keyframes modalIn {
+  0%   { opacity: 0; transform: scale(0.93) translateY(8px); }
+  100% { opacity: 1; transform: scale(1)    translateY(0); }
+}
+.animate-modalIn { animation: modalIn 0.2s ease forwards; }
 </style>

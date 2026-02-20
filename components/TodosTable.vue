@@ -85,6 +85,84 @@ const categoryColor: Record<string, string> = {
   shopping: 'bg-yellow-50 text-yellow-600',
 }
 
+// ── Deadline urgency helpers ───────────────────────────────────────────────
+
+const todayStr = (() => {
+  const n = new Date()
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
+})()
+
+const parseDate = (raw: string | null | undefined): string | null => {
+  if (!raw) return null
+  const str = String(raw).slice(0, 10)
+  return /^\d{4}-\d{2}-\d{2}$/.test(str) ? str : null
+}
+
+const getDaysLeft = (todo: Todo): number | null => {
+  const due = parseDate(todo.due_date)
+  if (!due || todo.completed) return null
+  const todayMs = new Date(todayStr).getTime()
+  const dueMs   = new Date(due).getTime()
+  return Math.ceil((dueMs - todayMs) / (1000 * 60 * 60 * 24))
+}
+
+type DeadlineUrgency = 'safe' | 'moderate' | 'urgent' | 'none'
+
+const getDeadlineUrgency = (todo: Todo): DeadlineUrgency => {
+  const days = getDaysLeft(todo)
+  if (days === null)              return 'none'
+  if (days >= 4 && days <= 6)    return 'safe'
+  if (days >= 2 && days <  4)    return 'moderate'
+  if (days >= 0 && days <  2)    return 'urgent'
+  if (days < 0)                  return 'urgent'
+  return 'none'
+}
+
+// Due date cell text colour
+const dueDateClass = (todo: Todo): string => {
+  if (todo.completed) return 'text-gray-400'
+  const urgency = getDeadlineUrgency(todo)
+  if (urgency === 'urgent')   return 'text-red-500 font-semibold'
+  if (urgency === 'moderate') return 'text-amber-500 font-semibold'
+  if (urgency === 'safe')     return 'text-green-600 font-semibold'
+  return 'text-gray-500'
+}
+
+// Small dot indicator next to due date
+const dueDotClass = (todo: Todo): string => {
+  if (todo.completed) return 'hidden'
+  const urgency = getDeadlineUrgency(todo)
+  if (urgency === 'urgent')   return 'inline-block w-1.5 h-1.5 rounded-full bg-red-500 mr-1 mb-0.5'
+  if (urgency === 'moderate') return 'inline-block w-1.5 h-1.5 rounded-full bg-amber-400 mr-1 mb-0.5'
+  if (urgency === 'safe')     return 'inline-block w-1.5 h-1.5 rounded-full bg-green-500 mr-1 mb-0.5'
+  return 'hidden'
+}
+
+// Days-left label shown next to due date
+const daysLeftLabel = (todo: Todo): string => {
+  const days = getDaysLeft(todo)
+  if (days === null)  return ''
+  if (days < 0)       return `${Math.abs(days)}d overdue`
+  if (days === 0)     return 'today'
+  if (days === 1)     return '1d left'
+  return `${days}d left`
+}
+
+// Status badge: also reflects upcoming
+const isUpcoming = (todo: Todo): boolean => {
+  if (todo.completed) return false
+  const start = parseDate(todo.start_date)
+  return start !== null && start > todayStr
+}
+
+const isOverdue = (todo: Todo): boolean => {
+  if (todo.completed) return false
+  const due = parseDate(todo.due_date)
+  return due !== null && due < todayStr
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 watch(category, () => {
   page.value = 1
   fetchTodos()
@@ -96,7 +174,6 @@ onMounted(() => fetchTodos())
 <template>
   <div class="bg-white rounded-xl shadow p-6 overflow-x-auto">
 
-    <!-- Todos Table -->
     <table class="w-full text-sm">
       <thead>
         <tr class="border-b border-gray-100">
@@ -138,14 +215,25 @@ onMounted(() => fetchTodos())
             <span v-else class="text-gray-300 text-xs">—</span>
           </td>
 
+          <!-- Status badge -->
           <td class="py-2.5">
             <span
               class="px-2 py-1 rounded-full text-xs font-medium"
               :class="todo.completed
                 ? 'bg-green-50 text-green-600'
-                : 'bg-amber-50 text-amber-600'"
+                : isOverdue(todo)
+                  ? 'bg-red-50 text-red-500'
+                  : isUpcoming(todo)
+                    ? 'bg-sky-50 text-sky-500'
+                    : 'bg-amber-50 text-amber-600'"
             >
-              {{ todo.completed ? '✓ Completed' : '● Pending' }}
+              {{ todo.completed
+                  ? '✓ Completed'
+                  : isOverdue(todo)
+                    ? '⚠ Overdue'
+                    : isUpcoming(todo)
+                      ? '◷ Upcoming'
+                      : '● In Progress' }}
             </span>
           </td>
 
@@ -153,8 +241,27 @@ onMounted(() => fetchTodos())
             <span class="text-xs text-gray-500">{{ formatDate(todo.start_date) }}</span>
           </td>
 
+          <!-- Due date with urgency colour + dot + days-left label -->
           <td class="py-2.5">
-            <span class="text-xs text-gray-500">{{ formatDate(todo.due_date) }}</span>
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs" :class="dueDateClass(todo)">
+                <span :class="dueDotClass(todo)"></span>
+                {{ formatDate(todo.due_date) }}
+              </span>
+              <span
+                v-if="!todo.completed && daysLeftLabel(todo)"
+                class="text-xs px-1.5 py-0.5 rounded-full font-medium"
+                :class="getDeadlineUrgency(todo) === 'urgent'
+                  ? 'bg-red-50 text-red-500'
+                  : getDeadlineUrgency(todo) === 'moderate'
+                    ? 'bg-amber-50 text-amber-500'
+                    : getDeadlineUrgency(todo) === 'safe'
+                      ? 'bg-green-50 text-green-600'
+                      : 'bg-gray-50 text-gray-400'"
+              >
+                {{ daysLeftLabel(todo) }}
+              </span>
+            </div>
           </td>
         </tr>
       </tbody>

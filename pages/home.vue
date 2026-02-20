@@ -76,7 +76,7 @@ const handleLogout = async () => {
 </script>
 
 <template>
-  <div class="h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-10 px-4 relative flex items-center">
+  <div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-6 px-3 sm:py-10 sm:px-4 relative flex items-center overflow-x-hidden">
 
     <!-- ── Toast container (top-right) ── -->
     <div class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
@@ -84,7 +84,7 @@ const handleLogout = async () => {
         <div
           v-for="toast in toasts"
           :key="toast.id"
-          class="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg backdrop-blur-sm border text-sm font-medium text-white min-w-[200px]"
+          class="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg backdrop-blur-sm border text-sm font-medium text-white min-w-[200px] max-w-[90vw]"
           :class="toast.type === 'success'
             ? 'bg-emerald-500/90 border-emerald-400/30'
             : 'bg-red-500/90 border-red-400/30'"
@@ -151,7 +151,7 @@ const handleLogout = async () => {
     </div>
 
     <!-- Animated background elements -->
-    <div v-else class="absolute inset-0 pointer-events-none">
+    <div v-else class="absolute inset-0 pointer-events-none overflow-hidden">
       <div class="absolute top-20 right-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob"></div>
       <div class="absolute bottom-20 left-20 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob animation-delay-2000"></div>
       <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob animation-delay-4000"></div>
@@ -161,80 +161,80 @@ const handleLogout = async () => {
       <div>
 
         <!-- Header -->
-        <div class="text-center mb-6 animate-fadeIn">
-          <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl shadow-lg mb-4 transform hover:rotate-6 transition-transform duration-300">
-            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="text-center mb-5 sm:mb-6 animate-fadeIn">
+          <div class="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl shadow-lg mb-3 sm:mb-4 transform hover:rotate-6 transition-transform duration-300">
+            <svg class="w-7 h-7 sm:w-8 sm:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
             </svg>
           </div>
-          <h1 class="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
+          <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-purple-400 bg-clip-text text-transparent mb-2 px-2">
             Welcome Back, {{ user.name }}!
           </h1>
         </div>
 
         <!-- Stats Card -->
-        <div class="mb-4 rounded-2xl shadow-2xl p-4 md:p-5 bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/15 transition-all duration-300 animate-fadeIn delay-200">
+        <div class="mb-3 sm:mb-4 rounded-2xl shadow-2xl p-3 sm:p-4 md:p-5 bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/15 transition-all duration-300 animate-fadeIn delay-200">
           <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+              <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
               </svg>
             </div>
-            <h2 class="text-lg md:text-xl font-semibold text-white">Your Progress</h2>
+            <h2 class="text-base sm:text-lg md:text-xl font-semibold text-white">Your Progress</h2>
           </div>
           <TodoStats />
         </div>
 
         <!-- Action Cards Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 animate-fadeIn delay-400">
+        <div class="grid grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4 animate-fadeIn delay-400">
 
           <!-- Create Tasks -->
           <NuxtLink to="/todos/create"
-            class="group relative rounded-xl shadow-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 p-4 md:p-5 flex items-center gap-3 md:gap-4">
-            <div class="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-              <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            class="group relative rounded-xl shadow-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 p-3 sm:p-4 md:p-5 flex items-center gap-2 sm:gap-3 md:gap-4">
+            <div class="w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+              <svg class="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
               </svg>
             </div>
             <div class="text-left flex-1 min-w-0">
-              <h3 class="text-white font-semibold text-base md:text-lg truncate">Create Tasks</h3>
-              <p class="text-blue-100 text-xs md:text-sm truncate">Add and manage your todos</p>
+              <h3 class="text-white font-semibold text-sm sm:text-base md:text-lg truncate">Create Tasks</h3>
+              <p class="text-blue-100 text-xs hidden sm:block truncate">Add and manage your todos</p>
             </div>
-            <svg class="w-5 h-5 text-white flex-shrink-0 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white flex-shrink-0 group-hover:translate-x-1 transition-transform duration-300 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
             </svg>
           </NuxtLink>
 
           <!-- All Todo List -->
           <NuxtLink to="/todos"
-            class="group relative rounded-xl shadow-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 p-4 md:p-5 flex items-center gap-3 md:gap-4">
-            <div class="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-              <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            class="group relative rounded-xl shadow-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 p-3 sm:p-4 md:p-5 flex items-center gap-2 sm:gap-3 md:gap-4">
+            <div class="w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+              <svg class="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
               </svg>
             </div>
             <div class="text-left flex-1 min-w-0">
-              <h3 class="text-white font-semibold text-base md:text-lg truncate">All Todo List</h3>
-              <p class="text-emerald-100 text-xs md:text-sm truncate">View all your tasks</p>
+              <h3 class="text-white font-semibold text-sm sm:text-base md:text-lg truncate">All Todo List</h3>
+              <p class="text-emerald-100 text-xs hidden sm:block truncate">View all your tasks</p>
             </div>
-            <svg class="w-5 h-5 text-white flex-shrink-0 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white flex-shrink-0 group-hover:translate-x-1 transition-transform duration-300 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
             </svg>
           </NuxtLink>
 
           <!-- My Profile -->
           <NuxtLink to="/profile"
-            class="group relative rounded-xl shadow-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 p-4 md:p-5 flex items-center gap-3 md:gap-4">
-            <div class="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-              <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            class="group relative rounded-xl shadow-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 p-3 sm:p-4 md:p-5 flex items-center gap-2 sm:gap-3 md:gap-4">
+            <div class="w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+              <svg class="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zM21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
             </div>
             <div class="text-left flex-1 min-w-0">
-              <h3 class="text-white font-semibold text-base md:text-lg truncate">My Profile</h3>
-              <p class="text-amber-100 text-xs md:text-sm truncate">View and edit your details</p>
+              <h3 class="text-white font-semibold text-sm sm:text-base md:text-lg truncate">My Profile</h3>
+              <p class="text-amber-100 text-xs hidden sm:block truncate">View and edit your details</p>
             </div>
-            <svg class="w-5 h-5 text-white flex-shrink-0 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white flex-shrink-0 group-hover:translate-x-1 transition-transform duration-300 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
             </svg>
           </NuxtLink>
@@ -242,17 +242,17 @@ const handleLogout = async () => {
           <!-- Logout -->
           <button
             @click="handleLogout"
-            class="group relative rounded-xl shadow-lg bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 p-4 md:p-5 flex items-center gap-3 md:gap-4">
-            <div class="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-              <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            class="group relative rounded-xl shadow-lg bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 p-3 sm:p-4 md:p-5 flex items-center gap-2 sm:gap-3 md:gap-4">
+            <div class="w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+              <svg class="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
               </svg>
             </div>
             <div class="text-left flex-1 min-w-0">
-              <h3 class="text-white font-semibold text-base md:text-lg truncate">Logout</h3>
-              <p class="text-red-100 text-xs md:text-sm truncate">Sign out of your account</p>
+              <h3 class="text-white font-semibold text-sm sm:text-base md:text-lg truncate">Logout</h3>
+              <p class="text-red-100 text-xs hidden sm:block truncate">Sign out of your account</p>
             </div>
-            <svg class="w-5 h-5 text-white flex-shrink-0 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white flex-shrink-0 group-hover:translate-x-1 transition-transform duration-300 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
             </svg>
           </button>
@@ -260,8 +260,8 @@ const handleLogout = async () => {
         </div>
 
         <!-- Helper Text -->
-        <div class="text-center animate-fadeIn delay-500 px-4">
-          <p class="text-gray-400 text-xs md:text-sm flex items-center justify-center gap-2 flex-wrap">
+        <div class="text-center animate-fadeIn delay-500 px-2">
+          <p class="text-gray-400 text-xs sm:text-sm flex items-center justify-center gap-2 flex-wrap">
             <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
@@ -306,7 +306,6 @@ const handleLogout = async () => {
 .toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
 .toast-enter-from { opacity: 0; transform: translateX(40px); }
 .toast-leave-to   { opacity: 0; transform: translateX(40px); }
-
 
 .modal-enter-active, .modal-leave-active { transition: opacity 0.2s ease; }
 .modal-enter-from, .modal-leave-to { opacity: 0; }
