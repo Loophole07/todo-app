@@ -25,3 +25,11 @@ export const admin = pgTable('admin', {
   email: varchar('email', { length: 150 }).notNull().unique(),
   password_hash: varchar('password_hash', { length: 255 }).notNull(),
 })
+
+export const passwordResetTokens = pgTable('password_reset_tokens', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: varchar('token', { length: 255 }).notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+})

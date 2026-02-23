@@ -1,20 +1,16 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
+const route = useRoute()
 const router = useRouter()
 
-const name = ref('')
-const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const loading = ref(false)
 const showPassword = ref(false)
 const showConfirmPassword = ref(false)
 
-const errors = ref<Record<string, string>>({})
-
-// Toast
 type Toast = { id: number; message: string; type: 'success' | 'error' }
 const toasts = ref<Toast[]>([])
 let toastId = 0
@@ -27,38 +23,22 @@ const showToast = (message: string, type: 'success' | 'error') => {
   }, 3500)
 }
 
-const handleRegister = async () => {
-  if (loading.value) return
-
-  errors.value = {}
+async function handleSubmit() {
   loading.value = true
 
   try {
-    const res = await $fetch<{ success: boolean; message: string; field?: string }>(
-      '/api/auth/register',
-      {
-        method: 'POST',
-        body: {
-          name: name.value,
-          email: email.value,
-          password: password.value,
-          confirmPassword: confirmPassword.value,
-        },
+    await $fetch('/api/auth/reset-password', {
+      method: 'POST',
+      body: {
+        token: route.query.token,
+        password: password.value,
+        confirmPassword: confirmPassword.value
       }
-    )
-
-    if (!res.success) {
-      if (res.field) errors.value[res.field] = res.message
-      showToast(res.message, 'error')
-      return
-    }
-
-    showToast(res.message, 'success')
-    setTimeout(() => router.push('/'), 1500)
-
+    })
+    showToast('Password reset successfully! Redirecting...', 'success')
+    setTimeout(() => router.push('/login'), 2000)
   } catch (err: any) {
-    const msg = err?.data?.statusMessage || 'Server error, please try again'
-    showToast(msg, 'error')
+    showToast(err?.data?.message || 'Something went wrong.', 'error')
   } finally {
     loading.value = false
   }
@@ -66,9 +46,9 @@ const handleRegister = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-200 via-indigo-200 to-purple-200">
 
-    <!-- Toast container -->
+    <!-- Toast -->
     <div class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
       <transition-group name="toast">
         <div
@@ -83,53 +63,30 @@ const handleRegister = async () => {
       </transition-group>
     </div>
 
-    <div class="bg-white w-full max-w-md rounded-xl shadow p-6 mx-auto">
-      <h1 class="text-2xl font-bold text-center mb-6">Registration Form</h1>
+    <div class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl p-10 max-w-md w-full text-center">
 
-      <div class="space-y-3">
-
-        <!-- Name -->
-        <div>
-          <input
-            v-model="name"
-            type="text"
-            placeholder="Full Name"
-            @input="delete errors.name"
-            class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring transition"
-            :class="errors.name
-              ? 'border-red-400 focus:ring-red-300 bg-red-50'
-              : 'border-gray-300 focus:ring-blue-300'"
-          />
-          <p v-if="errors.name" class="text-red-500 text-xs mt-1 ml-1">{{ errors.name }}</p>
+      <!-- Icon -->
+      <div class="flex justify-center mb-4">
+        <div class="bg-blue-100 rounded-full p-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
         </div>
+      </div>
 
-        <!-- Email -->
-        <div>
-          <input
-            v-model="email"
-            type="email"
-            placeholder="Email"
-            @input="delete errors.email"
-            class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring transition"
-            :class="errors.email
-              ? 'border-red-400 focus:ring-red-300 bg-red-50'
-              : 'border-gray-300 focus:ring-blue-300'"
-          />
-          <p v-if="errors.email" class="text-red-500 text-xs mt-1 ml-1">{{ errors.email }}</p>
-        </div>
+      <h1 class="text-3xl font-bold text-gray-800 mb-2">Reset Password</h1>
+      <p class="text-gray-500 mb-6 text-sm">Enter your new password below.</p>
 
-        <!-- Password -->
-        <div>
+      <div class="space-y-4">
+
+        <!-- New Password -->
+        <div class="text-left">
           <div class="relative">
             <input
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
-              placeholder="Password"
-              @input="delete errors.password"
-              class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring transition pr-10"
-              :class="errors.password
-                ? 'border-red-400 focus:ring-red-300 bg-red-50'
-                : 'border-gray-300 focus:ring-blue-300'"
+              placeholder="New Password"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition pr-10"
             />
             <!-- Eye Button -->
             <button
@@ -148,21 +105,16 @@ const handleRegister = async () => {
               </svg>
             </button>
           </div>
-          <p v-if="errors.password" class="text-red-500 text-xs mt-1 ml-1">{{ errors.password }}</p>
         </div>
 
         <!-- Confirm Password -->
-        <div>
+        <div class="text-left">
           <div class="relative">
             <input
               v-model="confirmPassword"
               :type="showConfirmPassword ? 'text' : 'password'"
-              placeholder="Confirm Password"
-              @input="delete errors.confirmPassword"
-              class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring transition pr-10"
-              :class="errors.confirmPassword
-                ? 'border-red-400 focus:ring-red-300 bg-red-50'
-                : 'border-gray-300 focus:ring-blue-300'"
+              placeholder="Confirm New Password"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition pr-10"
             />
             <!-- Eye Button -->
             <button
@@ -181,24 +133,22 @@ const handleRegister = async () => {
               </svg>
             </button>
           </div>
-          <p v-if="errors.confirmPassword" class="text-red-500 text-xs mt-1 ml-1">{{ errors.confirmPassword }}</p>
         </div>
 
-        <!-- Submit -->
         <button
-          @click="handleRegister"
+          @click="handleSubmit"
           :disabled="loading"
-          class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          class="w-full py-2 rounded-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {{ loading ? 'Registering...' : 'Register' }}
+          {{ loading ? 'Resetting...' : 'Reset Password' }}
         </button>
 
-        <button
-          @click="router.push('/')"
-          class="w-full bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300 transition"
+        <NuxtLink
+          to="/login"
+          class="block w-full py-2 rounded-lg border border-gray-400 text-gray-700 hover:bg-gray-100 transition"
         >
-          Go to Home
-        </button>
+          ← Back to Login
+        </NuxtLink>
 
       </div>
     </div>
@@ -206,16 +156,6 @@ const handleRegister = async () => {
 </template>
 
 <style scoped>
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.3s ease;
-}
-.toast-enter-from {
-  opacity: 0;
-  transform: translateX(40px);
-}
-.toast-leave-to {
-  opacity: 0;
-  transform: translateX(40px);
-}
+.toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateX(40px); }
 </style>

@@ -3,5 +3,10 @@ export default defineNuxtConfig({
     '@pinia/nuxt',
     '@nuxtjs/tailwindcss'
   ],
-  compatibilityDate: '2026-01-21'
+  compatibilityDate: '2026-01-21',
+  nitro: {
+    experimental: {
+      wasm: true
+    }
+  }
 })

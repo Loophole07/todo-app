@@ -124,6 +124,17 @@ const submitLogin = async () => {
               : 'border-gray-300 focus:ring-blue-500'"
           />
           <p v-if="errors.password" class="text-red-500 text-xs mt-1 ml-1">{{ errors.password }}</p>
+
+          <!-- 👇 Forgot Password link -->
+          <div class="text-right mt-1">
+            <NuxtLink
+              to="/forgot-password"
+              class="text-xs text-blue-500 hover:text-blue-700 hover:underline transition"
+            >
+              Forgot Password?
+            </NuxtLink>
+          </div>
+
         </div>
 
         <button

@@ -7,7 +7,7 @@ const router = useRouter()
 const user    = ref<{ id: number; name: string; email: string } | null>(null)
 const loading = ref(true)
 
-// ── Toast system ──────────────────────────────────────────────
+
 type Toast = { id: number; message: string; type: 'success' | 'error' }
 const toasts = ref<Toast[]>([])
 let toastId = 0
@@ -18,7 +18,7 @@ const showToast = (message: string, type: 'success' | 'error', duration = 3500) 
   setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id) }, duration)
 }
 
-// ── Confirm modal ─────────────────────────────────────────────
+
 const showConfirmModal = ref(false)
 let confirmResolve: ((val: boolean) => void) | null = null
 
@@ -36,7 +36,6 @@ const onCancel = () => {
   showConfirmModal.value = false
   confirmResolve?.(false)
 }
-// ─────────────────────────────────────────────────────────────
 
 onMounted(async () => {
   try {
@@ -151,6 +150,7 @@ const handleLogout = async () => {
     </div>
 
     <!-- Animated background elements -->
+     
     <div v-else class="absolute inset-0 pointer-events-none overflow-hidden">
       <div class="absolute top-20 right-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob"></div>
       <div class="absolute bottom-20 left-20 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob animation-delay-2000"></div>
